@@ -1,0 +1,47 @@
+name: Aggiornamento Automatico Dati MASE
+
+on:
+  schedule:
+    # ⚡ Martedì: scansioni strategiche alle 10:35, 12:35, 14:35, 16:35, 18:35 UTC (dalle 12:35 alle 20:35 italiane)
+    - cron: '35 10,12,14,16,18 * * 2'
+    # 🛡️ Safety fallback: mercoledì mattina alle 06:35 UTC (08:35 IT)
+    - cron: '35 6 * * 3'
+  
+  # Consente l'avvio manuale immediato con 1 click
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-mase-data:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Scarica il repository
+        uses: actions/checkout@v5
+
+      - name: 🐍 Configura Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: ⚡ Esegui lo script di download MASE
+        run: |
+          python fetch_data.py
+
+      - name: 💾 Salva i dati se modificati
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Se il dataset JSON è stato aggiornato con nuove rilevazioni
+          if git status --porcelain src/data/gasolio_mase.json | grep -q "src/data/gasolio_mase.json"; then
+            git pull --rebase origin main
+            git add src/data/gasolio_mase.json
+            git commit -m "chore(data): aggiornamento automatico prezzi gasolio MASE"
+            git push origin main
+            echo "✅ Nuovi dati MASE registrati e inviati con successo!"
+          else
+            echo "ℹ️ Nessun nuovo dato ministeriale rilevato: database già allineato."
+          fi
