@@ -365,7 +365,7 @@ export default function App() {
               </h1>
             </div>
             <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-              Rilevazioni Ufficiali Gasolio Autotrasporto Merci
+              da Rilevazioni Ufficiali Ministeriali Gasolio Auto
             </p>
           </div>
 
@@ -380,7 +380,7 @@ export default function App() {
                 Dati MASE DGSAIE
               </span>
               <div className="text-xs text-slate-600 font-semibold mt-0.5">
-                Dati validi fino al: <b>{maxAvailDateFormatted}</b>
+                Dati aggiornati al: <b>{maxAvailDateFormatted}</b>
               </div>
             </div>
           </div>
@@ -391,15 +391,15 @@ export default function App() {
 
         {/* 1. PANNELLO DI CONTROLLO CONFIGURAZIONE */}
         <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 mb-5 pb-3 border-b border-slate-100">
             <Sliders className="w-5 h-5 text-sky-600" />
             <h2 className="font-bold text-slate-800 text-base md:text-lg">
               Parametri generali di calcolo
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Base di Prezzo */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+            {/* --- RIGO 1: Base di Prezzo & Incidenza --- */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Base di Prezzo Ministeriale:
@@ -407,7 +407,7 @@ export default function App() {
               <select
                 value={priceType}
                 onChange={(e) => setPriceType(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
               >
                 {Object.entries(priceTypeOptions).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -415,7 +415,6 @@ export default function App() {
               </select>
             </div>
 
-            {/* Incidenza Costo */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Incidenza costo gasolio (%):
@@ -423,7 +422,7 @@ export default function App() {
               <select
                 value={fuelWeight}
                 onChange={(e) => setFuelWeight(Number(e.target.value))}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
               >
                 {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
                   <option key={n} value={n}>{n}%</option>
@@ -431,7 +430,7 @@ export default function App() {
               </select>
             </div>
 
-            {/* Periodo Target (MODALITÀ A 3 VIE) */}
+            {/* --- RIGO 2: Modalità Target (Sinistra) & Selettore Target (Destra) --- */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                 Modalità del Periodo Base (Target):
@@ -439,18 +438,26 @@ export default function App() {
               <select
                 value={targetMode}
                 onChange={(e) => setTargetMode(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm mb-2"
+                className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
               >
                 <option value="Anno solare">Anno solare</option>
                 <option value="Singolo Mese">Singolo Mese</option>
                 <option value="Range personalizzato">Range personalizzato (da / a)</option>
               </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                {targetMode === "Anno solare" && "Periodo Target Anno Solare:"}
+                {targetMode === "Singolo Mese" && "Periodo Target Mese:"}
+                {targetMode === "Range personalizzato" && "Periodo Target Intervallo Date:"}
+              </label>
 
               {targetMode === "Anno solare" && (
                 <select
                   value={selYear}
                   onChange={(e) => setSelYear(e.target.value)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
                 >
                   {Object.keys(annualDict).sort((a,b) => b - a).map((y) => (
                     <option key={y} value={y}>Media Anno {y}</option>
@@ -462,7 +469,7 @@ export default function App() {
                 <select
                   value={selTargetMonthIdx}
                   onChange={(e) => setSelTargetMonthIdx(Number(e.target.value))}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
                 >
                   {[...monthlyList].reverse().map((m, idx) => (
                     <option key={`tgt-${m.anno}-${m.mese}`} value={idx}>
@@ -473,43 +480,37 @@ export default function App() {
               )}
 
               {targetMode === "Range personalizzato" && (
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <span className="text-[10px] font-semibold text-slate-500">Da:</span>
-                    <input 
-                      type="date"
-                      max={maxAvailDateISO}
-                      value={tgtStartDate}
-                      onChange={(e) => setTgtStartDate(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-[10px] font-semibold text-slate-500">A:</span>
-                    <input 
-                      type="date"
-                      max={maxAvailDateISO}
-                      value={tgtEndDate}
-                      onChange={(e) => setTgtEndDate(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
-                    />
-                  </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input 
+                    type="date"
+                    max={maxAvailDateISO}
+                    value={tgtStartDate}
+                    onChange={(e) => setTgtStartDate(e.target.value)}
+                    className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3 text-sm font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-xs transition-colors"
+                  />
+                  <input 
+                    type="date"
+                    max={maxAvailDateISO}
+                    value={tgtEndDate}
+                    onChange={(e) => setTgtEndDate(e.target.value)}
+                    className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3 text-sm font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-xs transition-colors"
+                  />
                 </div>
               )}
             </div>
 
-            {/* Granularità e Rilevazione da Valutare */}
+            {/* --- RIGO 3: Periodo Rilevazione da Valutare (Sinistra) & Selettore (Destra) --- */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Rilevazione da Valutare:
+                Periodo Rilevazione da Valutare:
               </label>
-              <div className="flex gap-2 mb-2">
+              <div className="grid grid-cols-2 gap-2 h-[42px]">
                 {["Mensile", "Settimanale"].map((g) => (
                   <button
                     key={g}
                     type="button"
                     onClick={() => setGranularity(g)}
-                    className={`flex-1 py-1 rounded-lg text-xs font-bold transition-all ${
+                    className={`h-full rounded-xl text-sm font-bold transition-all ${
                       granularity === g 
                         ? 'bg-sky-600 text-white shadow-sm' 
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -519,16 +520,22 @@ export default function App() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                {granularity === "Mensile" ? "Mese di Rilevazione Gasolio:" : "Settimana di Rilevazione Gasolio:"}
+              </label>
 
               {granularity === "Mensile" ? (
                 <select
                   value={selMonthIdx}
                   onChange={(e) => setSelMonthIdx(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
                 >
                   {[...monthlyList].reverse().map((m, idx) => (
                     <option key={`${m.anno}-${m.mese}`} value={idx}>
-                      {idx === 0 ? `Ultimo Mese (${m.nome_mese} ${m.anno})` : `${m.nome_mese} ${m.anno}`}
+                      {idx === 0 ? `Ultimo mese consolidato (${m.nome_mese} ${m.anno})` : `${m.nome_mese} ${m.anno}`}
                     </option>
                   ))}
                 </select>
@@ -536,7 +543,7 @@ export default function App() {
                 <select
                   value={selWeekIdx}
                   onChange={(e) => setSelWeekIdx(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
                 >
                   {[...weeklyList].reverse().map((w, idx) => {
                     const meta = getWeekMeta(w.data);
@@ -558,24 +565,24 @@ export default function App() {
             Fuel Surcharge Calcolato ({granularity})
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-baseline md:justify-between gap-4 my-2">
-            <div className={`text-4xl md:text-5xl font-black tracking-tight ${
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 my-2">
+            <div className={`text-4xl md:text-5xl font-black tracking-tight shrink-0 whitespace-nowrap ${
               surchargePct > 0.0001 ? 'text-red-400' : (surchargePct < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
             }`}>
-              {fmtIt(surchargePct, 2, true)} %
+              {fmtIt(surchargePct, 2, true)}&nbsp;%
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-lg text-xs">
-                <b>Prezzo Rilevato:</b> {fmtIt(currentPrice, 3)} €/L ({evalLabel})
+            <div className="flex flex-wrap gap-2 justify-start md:justify-end">
+              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
+                <b>Prezzo Rilevato:</b> {fmtIt(currentPrice, 3)} €/L <span className="text-slate-500 font-normal">|</span> {evalLabel}
               </span>
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-lg text-xs">
-                <b>Prezzo Base:</b> {fmtIt(targetPrice, 3)} €/L ({targetLabel})
+              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
+                <b>Prezzo Base:</b> {fmtIt(targetPrice, 3)} €/L <span className="text-slate-500 font-normal">|</span> {targetLabel}
               </span>
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-lg text-xs">
+              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
                 <b>Variazione:</b> {fmtIt(deltaPct, 2, true)}%
               </span>
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1 rounded-lg text-xs">
+              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
                 <b>Peso:</b> {fuelWeight}%
               </span>
             </div>
@@ -583,7 +590,7 @@ export default function App() {
 
           <div className="mt-4 pt-3 border-t border-slate-700/60 text-xs text-slate-300 flex items-start gap-2">
             <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-            <span><b>Applicazione commerciale:</b> {commercialText}</span>
+            <span><b>Nota:</b> {commercialText}</span>
           </div>
         </section>
 
@@ -591,7 +598,7 @@ export default function App() {
         <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
           <div className="mb-4">
             <h3 className="font-bold text-slate-800 text-base md:text-lg">
-              Matrice a scaglioni previsionali
+              Matrice a scaglioni
             </h3>
             <p className="text-xs text-slate-500">Forchette del prezzo gasolio con relativo Fuel Surcharge (passi da ±0,50%).</p>
           </div>
@@ -602,7 +609,7 @@ export default function App() {
                 <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
                   <th className="py-3 px-4 rounded-l-xl font-bold">Forchetta Prezzo Gasolio</th>
                   <th className="py-3 px-4 font-bold text-center">Fuel Surcharge</th>
-                  <th className="py-3 px-4 rounded-r-xl font-bold">Stato / Riferimento</th>
+                  <th className="py-3 px-4 rounded-r-xl font-bold">Riferimento</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -627,13 +634,11 @@ export default function App() {
                     </td>
                     <td className="py-3 px-4 text-xs">
                       {row.isCurrent ? (
-                        <span className="inline-flex items-center gap-1.5 text-red-600 font-extrabold uppercase tracking-wide">
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                          ATTUALE • {fmtIt(currentPrice, 3)} €/L ({evalLabel})
+                        <span className="inline-flex items-center gap-1.5 text-red-600 font-bold tracking-wide">
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0"></span>
+                          {fmtIt(currentPrice, 3)} €/L <span className="text-red-400 font-normal">|</span> {evalLabel}
                         </span>
-                      ) : (
-                        <span className="text-slate-400">-</span>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -723,6 +728,12 @@ export default function App() {
                       margin: { l: 45, r: 15, t: 30, b: 35 },
                       xaxis: {
                         title: "Data Rilevazione",
+                        range: [
+                          weeklyList.length > 0
+                            ? `${Number(weeklyList[weeklyList.length - 1].data.split("-")[0]) - 5}-${weeklyList[weeklyList.length - 1].data.slice(5)}`
+                            : "2021-01-01",
+                          weeklyList.length > 0 ? weeklyList[weeklyList.length - 1].data : "2026-12-31"
+                        ],
                         rangeselector: {
                           buttons: [
                             { count: 1, label: '1 Anno', step: 'year', stepmode: 'backward' },
@@ -754,7 +765,11 @@ export default function App() {
                 <h4 className="font-bold text-slate-800 text-sm md:text-base mb-1">
                   Confronto Evoluzione Fuel Surcharge (Post {targetLabel})
                 </h4>
-                <p className="text-xs text-slate-500 mb-4">Confronto in percentuale tra Surcharge calcolato su base Pompa e su base Netto Industriale.</p>
+                <p className="text-xs text-slate-500 mb-1.5">Confronto in percentuale tra Surcharge calcolato su base Pompa e su base Netto Industriale.</p>
+                <div className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200/70 rounded-lg px-3 py-1.5 mb-4 inline-flex items-center gap-1.5 font-medium">
+                  <Info className="w-3.5 h-3.5 shrink-0" />
+                  <span>Il grafico riflette dinamicamente la granularità (Mensile o Settimanale) e il Periodo Base (Target) impostati nei parametri generali in alto.</span>
+                </div>
 
                 {surchargeTrendData.length > 0 ? (
                   <div className="w-full h-[400px]">
@@ -767,7 +782,8 @@ export default function App() {
                           mode: 'lines+markers',
                           name: 'Base Pompa',
                           line: { color: '#2563eb', width: 2.2 },
-                          marker: { size: 5, color: '#1d4ed8' }
+                          marker: { size: 5, color: '#1d4ed8' },
+                          hovertemplate: 'Base Pompa: %{y:.2f}%<extra></extra>'
                         },
                         {
                           x: surchargeTrendData.map((d) => d.label),
@@ -776,7 +792,8 @@ export default function App() {
                           mode: 'lines+markers',
                           name: 'Base Netto Industriale',
                           line: { color: '#f59e0b', width: 2.2, dash: 'dot' },
-                          marker: { size: 5, color: '#d97706' }
+                          marker: { size: 5, color: '#d97706' },
+                          hovertemplate: 'Base Netto: %{y:.2f}%<extra></extra>'
                         }
                       ]}
                       layout={{

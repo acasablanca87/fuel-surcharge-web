@@ -65,7 +65,7 @@ export function getWeekMeta(dateStr) {
 
   const startStr = obsStartDt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
   const endStr = obsEndDt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const label = `Settimana ${String(isoWeek).padStart(2, "0")} / ${isoYear} (dal ${startStr} al ${endStr})`;
+  const label = `Settimana ${String(isoWeek).padStart(2, "0")}/${isoYear} (${startStr} - ${endStr})`;
 
   return {
     rawDate: dateStr,
