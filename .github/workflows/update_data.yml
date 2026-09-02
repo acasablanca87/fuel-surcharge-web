@@ -2,8 +2,10 @@ name: Aggiornamento Automatico Dati MASE
 
 on:
   schedule:
-    # ⚡ Martedì: scansioni strategiche alle 10:35, 12:35, 14:35, 16:35, 18:35 UTC (dalle 12:35 alle 20:35 italiane)
-    - cron: '35 10,12,14,16,18 * * 2'
+    # ⚡ Scatto rapido "Puntualità MASE": 12:03 ora italiana (10:03 UTC in estate / 11:03 UTC in inverno)
+    - cron: '3 10,11 * * 2'
+    # 🎯 Ondate di recupero martedì: 10:35, 12:35, 14:35, 16:35 UTC (fino al tardo pomeriggio, rimossa la sera)
+    - cron: '35 10,12,14,16 * * 2'
     # 🛡️ Safety fallback: mercoledì mattina alle 06:35 UTC (08:35 IT)
     - cron: '35 6 * * 3'
   
