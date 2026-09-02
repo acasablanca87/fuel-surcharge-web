@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import rawData from './data/gasolio_mase.json';
-import { fmtIt, calculateSurcharge, priceBracket, getWeekMeta } from './utils/calculation';
+import { fmtIt, calculateSurcharge, priceBracket, getWeekMeta, toISODateString } from './utils/calculation';
 
 // Componente Plotly ottimizzato per Vite
 import Plotly from 'plotly.js-dist-min';
@@ -9,7 +9,7 @@ const Plot = createPlotlyComponent(Plotly);
 
 import { 
   Fuel, Sliders, Info, TrendingUp, BarChart3, Search, 
-  Calculator, BookOpen, Calendar, ExternalLink, ArrowUpRight, CheckCircle2
+  Calculator, BookOpen, Calendar, ExternalLink, CheckCircle2
 } from 'lucide-react';
 
 const priceTypeOptions = {
@@ -29,6 +29,27 @@ export default function App() {
   const monthlyList = useMemo(() => rawData.monthly_history || [], []);
   const annualDict = useMemo(() => rawData.annual_averages || {}, []);
 
+  // --- CALCOLO LIMITE MASSIMO DATA REALE (Ultima Domenica Rilevata) ---
+  const { maxAvailDateISO, maxAvailDateFormatted, defaultMonthStartISO } = useMemo(() => {
+    if (!weeklyList.length) {
+      const today = new Date();
+      const iso = toISODateString(today);
+      return { maxAvailDateISO: iso, maxAvailDateFormatted: iso, defaultMonthStartISO: iso };
+    }
+    const lastMeta = getWeekMeta(weeklyList[weeklyList.length - 1].data);
+    const endISO = lastMeta.obsEndISO; // Es: 2026-08-30 (Domenica)
+    const [y, m, d] = endISO.split("-");
+    
+    // Inizio del mese relativo all'ultima domenica
+    const startOfMonthISO = `${y}-${m}-01`;
+
+    return {
+      maxAvailDateISO: endISO,
+      maxAvailDateFormatted: `${d}/${m}/${y}`,
+      defaultMonthStartISO: startOfMonthISO
+    };
+  }, [weeklyList]);
+
   // --- STATO REATTIVO PRINCIPALE ---
   const [priceType, setPriceType] = useState(() => {
     const p = new URLSearchParams(window.location.search).get("price_type");
@@ -45,23 +66,37 @@ export default function App() {
     return g && g.toLowerCase() === "settimanale" ? "Settimanale" : "Mensile";
   });
 
-  const [targetMode, setTargetMode] = useState("Anno solare");
+  // Periodo Target (Base)
+  const [targetMode, setTargetMode] = useState("Anno solare"); // "Anno solare", "Singolo Mese", "Range personalizzato"
   const [selYear, setSelYear] = useState("2025");
   const [selTargetMonthIdx, setSelTargetMonthIdx] = useState(0);
-  const [selMonthIdx, setSelMonthIdx] = useState(0); // Rilevazione da valutare
-  const [selWeekIdx, setSelWeekIdx] = useState(0);   // Rilevazione da valutare
+  const [tgtStartDate, setTgtStartDate] = useState("2025-01-01");
+  const [tgtEndDate, setTgtEndDate] = useState("2025-12-31");
+
+  // Rilevazione da valutare
+  const [selMonthIdx, setSelMonthIdx] = useState(0); // 0 = più recente
+  const [selWeekIdx, setSelWeekIdx] = useState(0);   // 0 = più recente
 
   // Tab attivo nella suite inferiore
   const [activeTab, setActiveTab] = useState("chart");
 
   // --- STATO QUICK LOOKUP (Tab 3) ---
   const [lookupMode, setLookupMode] = useState("Intervallo Date");
-  const [lkStartDate, setLkStartDate] = useState("2026-08-01");
-  const [lkEndDate, setLkEndDate] = useState("2026-08-31");
+  const [lkStartDate, setLkStartDate] = useState(() => defaultMonthStartISO);
+  const [lkEndDate, setLkEndDate] = useState(() => maxAvailDateISO);
   const [lkYear, setLkYear] = useState("2025");
   const [lkMonthIdx, setLkMonthIdx] = useState(0);
   const [lkWeekIdx, setLkWeekIdx] = useState(0);
-  const [lkExactDate, setLkExactDate] = useState("2026-08-25");
+  const [lkExactDate, setLkExactDate] = useState(() => maxAvailDateISO);
+
+  // Aggiorna le date di lookup all'avvio
+  useEffect(() => {
+    if (maxAvailDateISO) {
+      setLkEndDate(maxAvailDateISO);
+      setLkExactDate(maxAvailDateISO);
+      setLkStartDate(defaultMonthStartISO);
+    }
+  }, [maxAvailDateISO, defaultMonthStartISO]);
 
   // --- STATO SIMULATORE WHAT-IF (Tab 4) ---
   const [simBasePrice, setSimBasePrice] = useState(1.650);
@@ -80,7 +115,7 @@ export default function App() {
 
   const activeKey = priceKeys[priceType];
 
-  // --- CALCOLO PREZZO TARGET ---
+  // --- CALCOLO PREZZO TARGET (ANNO, MESE O RANGE PERSONALIZZATO) ---
   const { targetPrice, targetPricePompa, targetPriceNetto, targetLabel, targetEndDate } = useMemo(() => {
     if (targetMode === "Anno solare") {
       const row = annualDict[selYear] || {};
@@ -91,7 +126,7 @@ export default function App() {
         targetLabel: `Media Anno ${selYear}`,
         targetEndDate: new Date(Number(selYear), 11, 31)
       };
-    } else {
+    } else if (targetMode === "Singolo Mese") {
       const reversedMonthly = [...monthlyList].reverse();
       const record = reversedMonthly[selTargetMonthIdx] || reversedMonthly[0];
       const y = record?.anno || 2025;
@@ -103,10 +138,39 @@ export default function App() {
         targetLabel: `Media ${record?.nome_mese} ${y}`,
         targetEndDate: new Date(y, m, 0)
       };
-    }
-  }, [targetMode, selYear, selTargetMonthIdx, activeKey, annualDict, monthlyList]);
+    } else {
+      // Range Personalizzato (da / a)
+      const matched = weeklyList.filter((item) => {
+        const meta = getWeekMeta(item.data);
+        return meta.obsEndISO >= tgtStartDate && meta.obsStartISO <= tgtEndDate;
+      });
 
-  // Pre-popola il simulatore con il prezzo target attivo
+      const [sY, sM, sD] = tgtStartDate.split("-");
+      const [eY, eM, eD] = tgtEndDate.split("-");
+      const label = `Media ${sD}/${sM}/${sY.slice(2)} - ${eD}/${eM}/${eY.slice(2)}`;
+
+      if (matched.length === 0) {
+        return {
+          targetPrice: 1.650,
+          targetPricePompa: 1.650,
+          targetPriceNetto: 0.720,
+          targetLabel: label,
+          targetEndDate: new Date(tgtEndDate)
+        };
+      }
+
+      const count = matched.length;
+      return {
+        targetPrice: matched.reduce((acc, r) => acc + r[activeKey], 0) / count,
+        targetPricePompa: matched.reduce((acc, r) => acc + r.prezzo_pompa, 0) / count,
+        targetPriceNetto: matched.reduce((acc, r) => acc + r.netto, 0) / count,
+        targetLabel: label,
+        targetEndDate: new Date(tgtEndDate)
+      };
+    }
+  }, [targetMode, selYear, selTargetMonthIdx, tgtStartDate, tgtEndDate, activeKey, annualDict, monthlyList, weeklyList]);
+
+  // Pre-popola il simulatore con il prezzo target
   useEffect(() => {
     if (targetPrice > 0) setSimBasePrice(Number(targetPrice.toFixed(3)));
   }, [targetPrice]);
@@ -138,23 +202,12 @@ export default function App() {
     return { currentPrice: 0, evalLabel: "N/D", commercialText: "" };
   }, [granularity, monthlyList, weeklyList, selMonthIdx, selWeekIdx, activeKey]);
 
-  // Pre-popola il prezzo stimato nel simulatore
-  useEffect(() => {
-    if (currentPrice > 0) setSimEvalPrice(Number(currentPrice.toFixed(3)));
-  }, [currentPrice]);
+  // (Pre-popolamento spostato e sincronizzato con la Consultazione Rapida)
 
   // --- CALCOLO DEL SURCHARGE ATTUALE ---
   const { deltaPct, surchargePct } = useMemo(() => {
     return calculateSurcharge(targetPrice, currentPrice, fuelWeight);
   }, [targetPrice, currentPrice, fuelWeight]);
-
-  // Data ultima rilevazione MASE
-  const lastMaseDate = useMemo(() => {
-    if (!weeklyList.length) return "N/D";
-    const d = weeklyList[weeklyList.length - 1].data;
-    const [y, m, day] = d.split("-");
-    return `${day}/${m}/${y}`;
-  }, [weeklyList]);
 
   // --- RIGHE MATRICE A SCAGLIONI (±0,5%) ---
   const bracketRows = useMemo(() => {
@@ -190,9 +243,8 @@ export default function App() {
       });
     } else {
       weeklyList.forEach((row) => {
-        const rowDate = new Date(row.data);
-        if (rowDate > targetEndDate) {
-          const meta = getWeekMeta(row.data);
+        const meta = getWeekMeta(row.data);
+        if (meta.obsEnd > targetEndDate) {
           const dPompaPct = ((row.prezzo_pompa - targetPricePompa) / targetPricePompa) * 100;
           const surPompa = dPompaPct * (fuelWeight / 100.0);
           const dNettoPct = ((row.netto - targetPriceNetto) / targetPriceNetto) * 100;
@@ -211,11 +263,9 @@ export default function App() {
   // --- DATI QUICK LOOKUP (Tab 3) ---
   const lookupResult = useMemo(() => {
     if (lookupMode === "Intervallo Date") {
-      const s = new Date(lkStartDate);
-      const e = new Date(lkEndDate);
       const matched = weeklyList.filter((item) => {
         const meta = getWeekMeta(item.data);
-        return meta.obsEnd >= s && meta.obsStart <= e;
+        return meta.obsEndISO >= lkStartDate && meta.obsStartISO <= lkEndDate;
       });
       if (matched.length === 0) return null;
       const count = matched.length;
@@ -261,23 +311,35 @@ export default function App() {
         detailText: `Rilevazione ufficiale ministeriale: ${meta.label}`
       };
     } else {
-      // Data Esatta
-      const targetDay = new Date(lkExactDate);
+      // Data Esatta (Giorno)
       let matched = weeklyList.find((w) => {
         const meta = getWeekMeta(w.data);
-        return targetDay >= meta.obsStart && targetDay <= meta.obsEnd;
+        return lkExactDate >= meta.obsStartISO && lkExactDate <= meta.obsEndISO;
       }) || weeklyList[weeklyList.length - 1];
       const meta = getWeekMeta(matched.data);
+      const [y, m, d] = lkExactDate.split("-");
       return {
         pompa: matched.prezzo_pompa,
         imponibile: matched.imponibile,
         netto: matched.netto,
         accisa: matched.accisa,
         iva: matched.iva,
-        detailText: `Giorno richiesto: ${lkExactDate} • Rilevazione MASE di riferimento in vigore: ${meta.label}`
+        detailText: `Giorno richiesto: ${d}/${m}/${y} • Rilevazione MASE di riferimento in vigore: ${meta.label}`
       };
     }
   }, [lookupMode, lkStartDate, lkEndDate, lkYear, lkMonthIdx, lkWeekIdx, lkExactDate, weeklyList, monthlyList, annualDict]);
+
+  // Pre-popola il prezzo stimato nel simulatore con il prezzo della Consultazione Rapida (Tab 3)
+  useEffect(() => {
+    if (lookupResult) {
+      const p = activeKey === "prezzo_pompa" 
+        ? lookupResult.pompa 
+        : (activeKey === "imponibile" ? lookupResult.imponibile : lookupResult.netto);
+      if (p > 0) setSimEvalPrice(Number(p.toFixed(3)));
+    } else if (currentPrice > 0) {
+      setSimEvalPrice(Number(currentPrice.toFixed(3)));
+    }
+  }, [lookupResult, activeKey, currentPrice]);
 
   // --- CALCOLO SIMULATORE WHAT-IF (Tab 4) ---
   const simResult = useMemo(() => {
@@ -318,7 +380,7 @@ export default function App() {
                 Dati MASE DGSAIE
               </span>
               <div className="text-xs text-slate-600 font-semibold mt-0.5">
-                Rilevazione: <b>{lastMaseDate}</b>
+                Dati validi fino al: <b>{maxAvailDateFormatted}</b>
               </div>
             </div>
           </div>
@@ -369,45 +431,71 @@ export default function App() {
               </select>
             </div>
 
-            {/* Periodo Target */}
+            {/* Periodo Target (MODALITÀ A 3 VIE) */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Periodo Base (Target):
+                Modalità del Periodo Base (Target):
               </label>
-              <div className="flex gap-2">
-                <select
-                  value={targetMode}
-                  onChange={(e) => setTargetMode(e.target.value)}
-                  className="bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-xs w-2/5"
-                >
-                  <option value="Anno solare">Anno solare</option>
-                  <option value="Singolo Mese">Singolo Mese</option>
-                </select>
+              <select
+                value={targetMode}
+                onChange={(e) => setTargetMode(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm mb-2"
+              >
+                <option value="Anno solare">Anno solare</option>
+                <option value="Singolo Mese">Singolo Mese</option>
+                <option value="Range personalizzato">Range personalizzato (da / a)</option>
+              </select>
 
-                {targetMode === "Anno solare" ? (
-                  <select
-                    value={selYear}
-                    onChange={(e) => setSelYear(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
-                  >
-                    {Object.keys(annualDict).sort((a,b) => b - a).map((y) => (
-                      <option key={y} value={y}>Media Anno {y}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <select
-                    value={selTargetMonthIdx}
-                    onChange={(e) => setSelTargetMonthIdx(Number(e.target.value))}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
-                  >
-                    {[...monthlyList].reverse().map((m, idx) => (
-                      <option key={`tgt-${m.anno}-${m.mese}`} value={idx}>
-                        {m.nome_mese} {m.anno}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              {targetMode === "Anno solare" && (
+                <select
+                  value={selYear}
+                  onChange={(e) => setSelYear(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                >
+                  {Object.keys(annualDict).sort((a,b) => b - a).map((y) => (
+                    <option key={y} value={y}>Media Anno {y}</option>
+                  ))}
+                </select>
+              )}
+
+              {targetMode === "Singolo Mese" && (
+                <select
+                  value={selTargetMonthIdx}
+                  onChange={(e) => setSelTargetMonthIdx(Number(e.target.value))}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                >
+                  {[...monthlyList].reverse().map((m, idx) => (
+                    <option key={`tgt-${m.anno}-${m.mese}`} value={idx}>
+                      {m.nome_mese} {m.anno}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {targetMode === "Range personalizzato" && (
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <span className="text-[10px] font-semibold text-slate-500">Da:</span>
+                    <input 
+                      type="date"
+                      max={maxAvailDateISO}
+                      value={tgtStartDate}
+                      onChange={(e) => setTgtStartDate(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-[10px] font-semibold text-slate-500">A:</span>
+                    <input 
+                      type="date"
+                      max={maxAvailDateISO}
+                      value={tgtEndDate}
+                      onChange={(e) => setTgtEndDate(e.target.value)}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Granularità e Rilevazione da Valutare */}
@@ -436,7 +524,7 @@ export default function App() {
                 <select
                   value={selMonthIdx}
                   onChange={(e) => setSelMonthIdx(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
                 >
                   {[...monthlyList].reverse().map((m, idx) => (
                     <option key={`${m.anno}-${m.mese}`} value={idx}>
@@ -448,7 +536,7 @@ export default function App() {
                 <select
                   value={selWeekIdx}
                   onChange={(e) => setSelWeekIdx(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
                 >
                   {[...weeklyList].reverse().map((w, idx) => {
                     const meta = getWeekMeta(w.data);
@@ -755,6 +843,7 @@ export default function App() {
                           <label className="block text-xs font-semibold text-slate-600 mb-1">Data Inizio:</label>
                           <input 
                             type="date" 
+                            max={maxAvailDateISO}
                             value={lkStartDate} 
                             onChange={(e) => setLkStartDate(e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold"
@@ -764,6 +853,7 @@ export default function App() {
                           <label className="block text-xs font-semibold text-slate-600 mb-1">Data Fine:</label>
                           <input 
                             type="date" 
+                            max={maxAvailDateISO}
                             value={lkEndDate} 
                             onChange={(e) => setLkEndDate(e.target.value)}
                             className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold"
@@ -826,6 +916,7 @@ export default function App() {
                         <label className="block text-xs font-semibold text-slate-600 mb-1">Data Viaggio / Documento:</label>
                         <input 
                           type="date" 
+                          max={maxAvailDateISO}
                           value={lkExactDate} 
                           onChange={(e) => setLkExactDate(e.target.value)}
                           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold"

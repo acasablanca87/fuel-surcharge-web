@@ -30,16 +30,26 @@ export function priceBracket(targetPrice, surchargePct, fuelWeightPct) {
   return [pMin, pMax];
 }
 
+// Formatta un oggetto Date in YYYY-MM-DD locale (senza bug di timezone UTC)
+export function toISODateString(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // Metadati settimana MASE (Lunedì-Domenica e ISO Week)
 export function getWeekMeta(dateStr) {
-  if (!dateStr) return { label: "N/D", obsStart: "", obsEnd: "", isoWeek: 0, isoYear: 0 };
-  const dt = new Date(dateStr);
+  if (!dateStr) return { label: "N/D", obsStartISO: "", obsEndISO: "", isoWeek: 0, isoYear: 0 };
   
-  // Data inizio (7 giorni prima) e fine (1 giorno prima)
-  const obsStartDt = new Date(dt);
-  obsStartDt.setDate(dt.getDate() - 7);
-  const obsEndDt = new Date(dt);
-  obsEndDt.setDate(dt.getDate() - 1);
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const relDate = new Date(y, m - 1, d);
+  
+  // Data inizio (7 giorni prima: Lunedì) e fine (1 giorno prima: Domenica)
+  const obsStartDt = new Date(relDate);
+  obsStartDt.setDate(relDate.getDate() - 7);
+  const obsEndDt = new Date(relDate);
+  obsEndDt.setDate(relDate.getDate() - 1);
 
   // Calcolo ISO Week
   const tempDt = new Date(obsStartDt.valueOf());
@@ -62,6 +72,8 @@ export function getWeekMeta(dateStr) {
     label,
     obsStart: obsStartDt,
     obsEnd: obsEndDt,
+    obsStartISO: toISODateString(obsStartDt),
+    obsEndISO: toISODateString(obsEndDt),
     isoWeek,
     isoYear
   };
