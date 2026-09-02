@@ -1,0 +1,46 @@
+name: Deploy su GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Scarica il codice
+        uses: actions/checkout@v5
+
+      - name: 🟢 Configura Node.js 24
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: 📦 Installa le dipendenze
+        run: npm ci || npm install
+
+      - name: ⚡ Compila l'app React (Build)
+        run: npm run build
+
+      - name: 📤 Carica artifact per GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './dist'
+
+      - name: 🚀 Deploy su GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
