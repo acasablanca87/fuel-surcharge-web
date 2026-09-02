@@ -505,20 +505,23 @@ export default function App() {
                 Periodo Rilevazione da Valutare:
               </label>
               <div className="grid grid-cols-2 gap-2 h-[42px]">
-                {["Mensile", "Settimanale"].map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => setGranularity(g)}
-                    className={`h-full rounded-xl text-sm font-bold transition-all ${
-                      granularity === g 
-                        ? 'bg-sky-600 text-white shadow-sm' 
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    {g}
-                  </button>
-                ))}
+                {["Mensile", "Settimanale"].map((g) => {
+                  const isActive = granularity === g;
+                  return (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setGranularity(g)}
+                      className={`h-full rounded-xl text-sm transition-all ${
+                        isActive 
+                          ? 'bg-sky-50/90 border border-sky-300 text-sky-950 font-bold shadow-xs' 
+                          : 'bg-slate-50 border border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600 font-medium'
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
