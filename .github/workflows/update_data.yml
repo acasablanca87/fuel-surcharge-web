@@ -2,27 +2,31 @@ name: Aggiornamento Automatico Dati MASE
 
 on:
   schedule:
-    # ⚡ 1. Anticipo flash: 11:53 (ora italiana reale con timezone IANA)
-    - cron: '53 11 * * 2'
+    # ⚡ 1. Anticipo flash pre-mezzogiorno: ore 11:57 (ora italiana reale)
+    - cron: '57 11 * * 2'
       timezone: 'Europe/Rome'
 
-    # 🎯 2. Finestra Clou Martedì (scansioni mirate a minuti anti-congestione)
-    # Ore 12:12, 12:38, 13:14, 13:46, 14:24
-    - cron: '12,38 12 * * 2'
+    # 🎯 2. Finestra Clou Martedì (cadenza a minuti asimmetrici anti-congestione)
+    # Ore 12:08, 12:21, 12:38, 12:54
+    - cron: '8,21,38,54 12 * * 2'
       timezone: 'Europe/Rome'
-    - cron: '14,46 13 * * 2'
+
+    # Ore 13:14, 13:38, 13:56
+    - cron: '14,38,56 13 * * 2'
       timezone: 'Europe/Rome'
+
+    # Ore 14:24
     - cron: '24 14 * * 2'
       timezone: 'Europe/Rome'
 
-    # 🕒 3. Monitoraggio pomeridiano se il MASE pubblica in ritardo (ore 16:18 e 18:18)
+    # 🕒 3. Monitoraggio pomeridiano di recupero (ore 16:18 e 18:18)
     - cron: '18 16,18 * * 2'
       timezone: 'Europe/Rome'
 
     # 🛡️ 4. Safety Fallback: mercoledì mattina alle 09:18 se martedì era festivo
     - cron: '18 9 * * 3'
       timezone: 'Europe/Rome'
-  
+
   # Consente l'avvio manuale immediato con 1 click
   workflow_dispatch:
 
