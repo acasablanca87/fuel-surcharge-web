@@ -425,12 +425,70 @@ export default function App() {
     };
   }, [weeklyList, monthlyList, activeKey]);
 
+  // --- COMPONENTE TICKER BOXES (CONDIVISO TRA DESKTOP E MOBILE) ---
+  const tickerBoxesNode = (
+    <>
+      {/* 1. Ultima Settimana Rilevata */}
+      <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
+        <div className="h-4 flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-[#0F2D59] uppercase tracking-wider">
+            ULTIMA SETTIMANA
+          </span>
+        </div>
+        <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
+          {tickerData.lastWeekPrice}
+        </div>
+        <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+          {tickerData.lastWeekLabel}
+        </div>
+      </div>
+
+      {/* 2. Ultimo Mese Consolidato */}
+      <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
+        <div className="h-4 flex items-center justify-between gap-1">
+          <span className="text-[10.5px] font-semibold text-[#0F2D59] truncate">
+            {tickerData.lastMonthTitle}
+          </span>
+          <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#0F2D59] border border-slate-200/90 rounded leading-none shrink-0">
+            CONSOLIDATO
+          </span>
+        </div>
+        <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
+          {tickerData.lastMonthPrice}
+        </div>
+        <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+          Media mensile ufficiale
+        </div>
+      </div>
+
+      {/* 3. Mese Corrente (Provvisorio) */}
+      {tickerData.hasProvisional && (
+        <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
+          <div className="h-4 flex items-center justify-between gap-1">
+            <span className="text-[10.5px] font-semibold text-[#8C9AA8] truncate">
+              {tickerData.provisionalTitle}
+            </span>
+            <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#8C9AA8] border border-[#8C9AA8]/40 rounded leading-none shrink-0">
+              PROVVISORIO
+            </span>
+          </div>
+          <div className="text-sm font-bold text-[#8C9AA8] tracking-tight leading-none">
+            {tickerData.provisionalPrice}
+          </div>
+          <div className="text-[8.5px] font-normal text-[#8C9AA8] whitespace-nowrap leading-none">
+            {tickerData.provisionalSub}
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans pb-16 antialiased selection:bg-sky-500 selection:text-white">
       
-      {/* HEADER ISTITUZIONALE CON TICKER FINANZIARIO */}
+      {/* 1. TOP BAR BRAND (SLIM & STICKY SU TUTTI I DISPOSITIVI) */}
       <header className="bg-white border-b border-slate-200/90 shadow-xs sticky top-0 z-50 font-titillium">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 md:py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 md:py-3 flex flex-row items-center justify-between gap-4">
           
           {/* Header Sinistro: Brand & Istituzionalità */}
           <div className="flex flex-col justify-center">
@@ -449,66 +507,22 @@ export default function App() {
             </div>
           </div>
 
-          {/* Header Destro: Ticker Finanziario Prezzi Gasolio */}
-          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
-            {/* 1. Ultima Settimana Rilevata */}
-            <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
-              <div className="h-4 flex items-center justify-between">
-                <span className="text-[10px] font-semibold text-[#0F2D59] uppercase tracking-wider">
-                  ULTIMA SETTIMANA
-                </span>
-              </div>
-              <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
-                {tickerData.lastWeekPrice}
-              </div>
-              <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
-                {tickerData.lastWeekLabel}
-              </div>
-            </div>
-
-            {/* 2. Ultimo Mese Consolidato */}
-            <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
-              <div className="h-4 flex items-center justify-between gap-1">
-                <span className="text-[10.5px] font-semibold text-[#0F2D59] truncate">
-                  {tickerData.lastMonthTitle}
-                </span>
-                <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#0F2D59] border border-slate-200/90 rounded leading-none shrink-0">
-                  CONSOLIDATO
-                </span>
-              </div>
-              <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
-                {tickerData.lastMonthPrice}
-              </div>
-              <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
-                Media mensile ufficiale
-              </div>
-            </div>
-
-            {/* 3. Mese Corrente (Provvisorio) */}
-            {tickerData.hasProvisional && (
-              <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
-                <div className="h-4 flex items-center justify-between gap-1">
-                  <span className="text-[10.5px] font-semibold text-[#8C9AA8] truncate">
-                    {tickerData.provisionalTitle}
-                  </span>
-                  <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#8C9AA8] border border-[#8C9AA8]/40 rounded leading-none shrink-0">
-                    PROVVISORIO
-                  </span>
-                </div>
-                <div className="text-sm font-bold text-[#8C9AA8] tracking-tight leading-none">
-                  {tickerData.provisionalPrice}
-                </div>
-                <div className="text-[8.5px] font-normal text-[#8C9AA8] whitespace-nowrap leading-none">
-                  {tickerData.provisionalSub}
-                </div>
-              </div>
-            )}
+          {/* Desktop View (>768px): Ticker Finanziario orizzontale affiancato a destra nella sticky navbar */}
+          <div className="hidden md:flex items-center gap-2.5">
+            {tickerBoxesNode}
           </div>
 
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 pt-6 space-y-6">
+      {/* Mobile View (<=768px): Ticker Prezzi sganciato nel flusso normale della pagina (scorre via sotto la navbar) */}
+      <div className="md:hidden max-w-6xl mx-auto px-4 pt-3.5 pb-1 font-titillium">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5">
+          {tickerBoxesNode}
+        </div>
+      </div>
+
+      <main className="max-w-6xl mx-auto px-4 pt-4 md:pt-6 space-y-6">
 
         {/* 1. PANNELLO DI CONTROLLO CONFIGURAZIONE */}
         <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
