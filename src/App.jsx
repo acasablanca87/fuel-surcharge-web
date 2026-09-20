@@ -8,8 +8,8 @@ import createPlotlyComponent from 'react-plotly.js/factory';
 const Plot = createPlotlyComponent(Plotly);
 
 import { 
-  Fuel, Sliders, Info, TrendingUp, BarChart3, Search, 
-  Calculator, BookOpen, Calendar, ExternalLink, CheckCircle2
+  Sliders, Info, TrendingUp, BarChart3, Search, 
+  Calculator, BookOpen, ExternalLink, CheckCircle2
 } from 'lucide-react';
 
 const priceTypeOptions = {
@@ -30,22 +30,21 @@ export default function App() {
   const annualDict = useMemo(() => rawData.annual_averages || {}, []);
 
   // --- CALCOLO LIMITE MASSIMO DATA REALE (Ultima Domenica Rilevata) ---
-  const { maxAvailDateISO, maxAvailDateFormatted, defaultMonthStartISO } = useMemo(() => {
+  const { maxAvailDateISO, defaultMonthStartISO } = useMemo(() => {
     if (!weeklyList.length) {
       const today = new Date();
       const iso = toISODateString(today);
-      return { maxAvailDateISO: iso, maxAvailDateFormatted: iso, defaultMonthStartISO: iso };
+      return { maxAvailDateISO: iso, defaultMonthStartISO: iso };
     }
     const lastMeta = getWeekMeta(weeklyList[weeklyList.length - 1].data);
     const endISO = lastMeta.obsEndISO; // Es: 2026-08-30 (Domenica)
-    const [y, m, d] = endISO.split("-");
+    const [y, m] = endISO.split("-");
     
     // Inizio del mese relativo all'ultima domenica
     const startOfMonthISO = `${y}-${m}-01`;
 
     return {
       maxAvailDateISO: endISO,
-      maxAvailDateFormatted: `${d}/${m}/${y}`,
       defaultMonthStartISO: startOfMonthISO
     };
   }, [weeklyList]);
@@ -349,41 +348,163 @@ export default function App() {
     return { sDeltaPct, sSurPct, sStep, pMin, pMax };
   }, [simBasePrice, simEvalPrice, simWeight]);
 
+  // --- DATI TICKER FINANZIARIO HEADER (Prezzo Ultima Settimana, Ultimo Mese Consolidato, Mese Corrente Provvisorio) ---
+  const tickerData = useMemo(() => {
+    // 1. Ultima Settimana Rilevata
+    let lastWeekPrice = "N/D";
+    let lastWeekLabel = "N/D";
+    if (weeklyList.length > 0) {
+      const lastWeek = weeklyList[weeklyList.length - 1];
+      const p = lastWeek[activeKey];
+      lastWeekPrice = p !== undefined && p !== null ? `${fmtIt(p)} €/L` : "N/D";
+      const meta = getWeekMeta(lastWeek.data);
+      const s = meta.obsStart;
+      const e = meta.obsEnd;
+      if (s && e) {
+        const sStr = `${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}/${s.getFullYear()}`;
+        const eStr = `${String(e.getDate()).padStart(2, '0')}/${String(e.getMonth() + 1).padStart(2, '0')}/${e.getFullYear()}`;
+        lastWeekLabel = `Media dal ${sStr} al ${eStr}`;
+      } else {
+        lastWeekLabel = meta.label;
+      }
+    }
+
+    // 2. Ultimo Mese Consolidato
+    let lastMonthPrice = "N/D";
+    let lastMonthTitle = "N/D";
+    if (monthlyList.length > 0) {
+      const lastM = monthlyList[monthlyList.length - 1];
+      const p = lastM[activeKey];
+      lastMonthPrice = p !== undefined && p !== null ? `${fmtIt(p)} €/L` : "N/D";
+      lastMonthTitle = `${lastM.nome_mese} ${lastM.anno}`;
+    }
+
+    // 3. Mese Corrente (Provvisorio)
+    let hasProvisional = false;
+    let provisionalPrice = "N/D";
+    let provisionalTitle = "N/D";
+    let provisionalSub = "";
+
+    if (weeklyList.length > 0) {
+      const lastWeek = weeklyList[weeklyList.length - 1];
+      const [wYStr, wMStr] = lastWeek.data.split("-");
+      const wYear = Number(wYStr);
+      const wMonth = Number(wMStr);
+
+      const isConsolidated = monthlyList.some((m) => m.anno === wYear && m.mese === wMonth);
+      if (!isConsolidated) {
+        const provisionalWeeks = weeklyList.filter((w) => {
+          const [y, m] = w.data.split("-").map(Number);
+          return y === wYear && m === wMonth;
+        });
+
+        if (provisionalWeeks.length > 0) {
+          hasProvisional = true;
+          const monthNames = [
+            "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+            "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+          ];
+          provisionalTitle = `${monthNames[wMonth - 1]} ${wYear}`;
+          const sum = provisionalWeeks.reduce((acc, curr) => acc + (curr[activeKey] || 0), 0);
+          const avg = sum / provisionalWeeks.length;
+          provisionalPrice = `${fmtIt(avg)} €/L`;
+          provisionalSub = `Media su ${provisionalWeeks.length} ${provisionalWeeks.length === 1 ? "rilevazione" : "rilevazioni"}`;
+        }
+      }
+    }
+
+    return {
+      lastWeekPrice,
+      lastWeekLabel,
+      lastMonthPrice,
+      lastMonthTitle,
+      hasProvisional,
+      provisionalPrice,
+      provisionalTitle,
+      provisionalSub
+    };
+  }, [weeklyList, monthlyList, activeKey]);
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans pb-16 antialiased selection:bg-sky-500 selection:text-white">
       
-      {/* HEADER ISTITUZIONALE */}
-      <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="p-2 bg-sky-600 text-white rounded-xl shadow-sm">
-                <Fuel className="w-5 h-5" />
+      {/* HEADER ISTITUZIONALE CON TICKER FINANZIARIO */}
+      <header className="bg-white border-b border-slate-200/90 shadow-xs sticky top-0 z-50 font-titillium">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 md:py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
+          
+          {/* Header Sinistro: Brand & Istituzionalità */}
+          <div className="flex flex-col justify-center">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#0F2D59] leading-tight">
+              FUEL SURCHARGE ITALIA
+            </h1>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <img 
+                src="https://upload.wikimedia.org/wikipedia/commons/0/00/Emblem_of_Italy.svg" 
+                alt="Repubblica Italiana" 
+                className="w-4 h-4 object-contain opacity-95 shrink-0"
+              />
+              <span className="text-xs font-semibold text-slate-600 tracking-normal">
+                da Rilevazioni Ufficiali MASE (DGSAIE)
               </span>
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-slate-900">
-                FUEL SURCHARGE ITALIA
-              </h1>
             </div>
-            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-              da Rilevazioni Ufficiali Ministeriali Gasolio Auto
-            </p>
           </div>
 
-          <div className="flex items-center gap-3 self-end md:self-auto bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-xl">
-            <img 
-              src="https://upload.wikimedia.org/wikipedia/commons/0/00/Emblem_of_Italy.svg" 
-              alt="Repubblica Italiana" 
-              className="w-7 h-7 opacity-90"
-            />
-            <div className="text-right">
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-200 px-1.5 py-0.5 rounded">
-                Dati MASE DGSAIE
-              </span>
-              <div className="text-xs text-slate-600 font-semibold mt-0.5">
-                Dati aggiornati al: <b>{maxAvailDateFormatted}</b>
+          {/* Header Destro: Ticker Finanziario Prezzi Gasolio */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
+            {/* 1. Ultima Settimana Rilevata */}
+            <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
+              <div className="h-4 flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-[#0F2D59] uppercase tracking-wider">
+                  ULTIMA SETTIMANA
+                </span>
+              </div>
+              <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
+                {tickerData.lastWeekPrice}
+              </div>
+              <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+                {tickerData.lastWeekLabel}
               </div>
             </div>
+
+            {/* 2. Ultimo Mese Consolidato */}
+            <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
+              <div className="h-4 flex items-center justify-between gap-1">
+                <span className="text-[10.5px] font-semibold text-[#0F2D59] truncate">
+                  {tickerData.lastMonthTitle}
+                </span>
+                <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#0F2D59] border border-slate-200/90 rounded leading-none shrink-0">
+                  CONSOLIDATO
+                </span>
+              </div>
+              <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
+                {tickerData.lastMonthPrice}
+              </div>
+              <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+                Media mensile ufficiale
+              </div>
+            </div>
+
+            {/* 3. Mese Corrente (Provvisorio) */}
+            {tickerData.hasProvisional && (
+              <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
+                <div className="h-4 flex items-center justify-between gap-1">
+                  <span className="text-[10.5px] font-semibold text-[#8C9AA8] truncate">
+                    {tickerData.provisionalTitle}
+                  </span>
+                  <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#8C9AA8] border border-[#8C9AA8]/40 rounded leading-none shrink-0">
+                    PROVVISORIO
+                  </span>
+                </div>
+                <div className="text-sm font-bold text-[#8C9AA8] tracking-tight leading-none">
+                  {tickerData.provisionalPrice}
+                </div>
+                <div className="text-[8.5px] font-normal text-[#8C9AA8] whitespace-nowrap leading-none">
+                  {tickerData.provisionalSub}
+                </div>
+              </div>
+            )}
           </div>
+
         </div>
       </header>
 
@@ -394,7 +515,7 @@ export default function App() {
           <div className="flex items-center gap-2 mb-5 pb-3 border-b border-slate-100">
             <Sliders className="w-5 h-5 text-sky-600" />
             <h2 className="font-bold text-slate-800 text-base md:text-lg">
-              Parametri generali di calcolo
+              Parametri di calcolo del Fuel Surcharge
             </h2>
           </div>
 
