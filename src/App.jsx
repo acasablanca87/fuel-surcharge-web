@@ -431,14 +431,14 @@ export default function App() {
       {/* 1. Ultima Settimana Rilevata */}
       <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
         <div className="h-4 flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-[#0F2D59] uppercase tracking-wider">
-            ULTIMA SETTIMANA
+          <span className="text-[10.5px] font-semibold text-[#0F2D59] truncate">
+            Ultima Settimana
           </span>
         </div>
         <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
           {tickerData.lastWeekPrice}
         </div>
-        <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+        <div className="text-[9.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
           {tickerData.lastWeekLabel}
         </div>
       </div>
@@ -456,7 +456,7 @@ export default function App() {
         <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
           {tickerData.lastMonthPrice}
         </div>
-        <div className="text-[8.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+        <div className="text-[9.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
           Media mensile ufficiale
         </div>
       </div>
@@ -475,7 +475,7 @@ export default function App() {
           <div className="text-sm font-bold text-[#8C9AA8] tracking-tight leading-none">
             {tickerData.provisionalPrice}
           </div>
-          <div className="text-[8.5px] font-normal text-[#8C9AA8] whitespace-nowrap leading-none">
+          <div className="text-[9.5px] font-normal text-[#8C9AA8] whitespace-nowrap leading-none">
             {tickerData.provisionalSub}
           </div>
         </div>
