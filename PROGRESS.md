@@ -63,7 +63,12 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
   - Riscritto e modernizzato `README.md` rendendolo chiaro, pulito e focalizzato sull'utente finale.
   - Creato `AGENTS.md` rispettando rigorosamente il limite di 120 righe (62 righe effettive) e le direttive 2026.
   - Creato `PROGRESS.md` con baseline audit, certificazione Milestone 0 e backlog per le iterazioni successive.
-  - **Refinement UI KPI Cards:** Applicata modifica chirurgica a `src/App.jsx`:
-    - Normalizzato il titolo della prima card a `"Ultima Settimana"` (`text-[10.5px] font-semibold truncate`), allineandolo stilisticamente alle altre due card.
-    - Incrementata la dimensione delle tre didascalie inferiori da `text-[8.5px]` a `text-[9.5px]` per migliorare la leggibilità preservando la gerarchia visiva.
+  - **Refinement UI KPI Cards (Ciclo 1 & 2):** Applicata modifica chirurgica a `src/App.jsx`:
+    - Normalizzato il titolo della prima card con numero settimana ISO dinamico: `"Ultima Settimana (W/YY)"` (es. `"Ultima Settimana (37/26)"`), attingendo ai metadati di `getWeekMeta` senza duplicazione di logica.
+    - Riformattato l'intervallo date nella didascalia con anno a due cifre: `"Media dal DD/MM/YY al DD/MM/YY"`.
+    - Uniformata rigorosamente la tipografia delle tre didascalie inferiori: dimensione incrementata a `text-[10.5px]` con colore coerente `text-slate-500` per tutte le card.
+    - Collaudata con esito positivo la build di produzione (`npm run build`).
+  - **Miglioramenti Selettori & Default Target:** Applicate modifiche chirurgiche a `src/App.jsx`:
+    - Riformattate le opzioni del select "Settimana di Rilevazione Gasolio": `"Ultima Settimana - W/YY (DD/MM/YY - DD/MM/YY)"` per la più recente (senza ripetizione di "settimana") e `"Settimana W (DD/MM/YY - DD/MM/YY)"` per tutte le precedenti con anno a due cifre.
+    - Implementato switch automatico per la modalità target "Singolo Mese" che imposta come default Dicembre dell'ultimo anno solare consolidato (Dicembre 2025), sincronizzando immediatamente il calcolo del surcharge.
     - Collaudata con esito positivo la build di produzione (`npm run build`).

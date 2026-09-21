@@ -68,9 +68,29 @@ export default function App() {
   // Periodo Target (Base)
   const [targetMode, setTargetMode] = useState("Anno solare"); // "Anno solare", "Singolo Mese", "Range personalizzato"
   const [selYear, setSelYear] = useState("2025");
-  const [selTargetMonthIdx, setSelTargetMonthIdx] = useState(0);
+
+  // Calcolo indice di default per "Singolo Mese": Dicembre dell'ultimo anno solare consolidato
+  const defaultTargetMonthIdx = useMemo(() => {
+    if (!monthlyList.length) return 0;
+    const reversedMonthly = [...monthlyList].reverse();
+    const annualYears = Object.keys(annualDict).map(Number).filter((y) => !isNaN(y));
+    const maxConsolidatedYear = annualYears.length > 0 ? Math.max(...annualYears) : 2025;
+    const decIdx = reversedMonthly.findIndex((m) => m.anno === maxConsolidatedYear && m.mese === 12);
+    if (decIdx !== -1) return decIdx;
+    const fallbackIdx = reversedMonthly.findIndex((m) => m.mese === 12);
+    return fallbackIdx !== -1 ? fallbackIdx : 0;
+  }, [monthlyList, annualDict]);
+
+  const [selTargetMonthIdx, setSelTargetMonthIdx] = useState(defaultTargetMonthIdx);
   const [tgtStartDate, setTgtStartDate] = useState("2025-01-01");
   const [tgtEndDate, setTgtEndDate] = useState("2025-12-31");
+
+  const handleTargetModeChange = (newMode) => {
+    setTargetMode(newMode);
+    if (newMode === "Singolo Mese") {
+      setSelTargetMonthIdx(defaultTargetMonthIdx);
+    }
+  };
 
   // Rilevazione da valutare
   const [selMonthIdx, setSelMonthIdx] = useState(0); // 0 = più recente
@@ -353,16 +373,20 @@ export default function App() {
     // 1. Ultima Settimana Rilevata
     let lastWeekPrice = "N/D";
     let lastWeekLabel = "N/D";
+    let lastWeekTitle = "Ultima Settimana";
     if (weeklyList.length > 0) {
       const lastWeek = weeklyList[weeklyList.length - 1];
       const p = lastWeek[activeKey];
       lastWeekPrice = p !== undefined && p !== null ? `${fmtIt(p)} €/L` : "N/D";
       const meta = getWeekMeta(lastWeek.data);
+      if (meta.isoWeek && meta.isoYear) {
+        lastWeekTitle = `Ultima Settimana (${meta.isoWeek}/${String(meta.isoYear).slice(-2)})`;
+      }
       const s = meta.obsStart;
       const e = meta.obsEnd;
       if (s && e) {
-        const sStr = `${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}/${s.getFullYear()}`;
-        const eStr = `${String(e.getDate()).padStart(2, '0')}/${String(e.getMonth() + 1).padStart(2, '0')}/${e.getFullYear()}`;
+        const sStr = `${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}/${String(s.getFullYear()).slice(-2)}`;
+        const eStr = `${String(e.getDate()).padStart(2, '0')}/${String(e.getMonth() + 1).padStart(2, '0')}/${String(e.getFullYear()).slice(-2)}`;
         lastWeekLabel = `Media dal ${sStr} al ${eStr}`;
       } else {
         lastWeekLabel = meta.label;
@@ -414,6 +438,7 @@ export default function App() {
     }
 
     return {
+      lastWeekTitle,
       lastWeekPrice,
       lastWeekLabel,
       lastMonthPrice,
@@ -432,13 +457,13 @@ export default function App() {
       <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
         <div className="h-4 flex items-center justify-between">
           <span className="text-[10.5px] font-semibold text-[#0F2D59] truncate">
-            Ultima Settimana
+            {tickerData.lastWeekTitle}
           </span>
         </div>
         <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
           {tickerData.lastWeekPrice}
         </div>
-        <div className="text-[9.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+        <div className="text-[10.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
           {tickerData.lastWeekLabel}
         </div>
       </div>
@@ -456,7 +481,7 @@ export default function App() {
         <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
           {tickerData.lastMonthPrice}
         </div>
-        <div className="text-[9.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
+        <div className="text-[10.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
           Media mensile ufficiale
         </div>
       </div>
@@ -475,7 +500,7 @@ export default function App() {
           <div className="text-sm font-bold text-[#8C9AA8] tracking-tight leading-none">
             {tickerData.provisionalPrice}
           </div>
-          <div className="text-[9.5px] font-normal text-[#8C9AA8] whitespace-nowrap leading-none">
+          <div className="text-[10.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
             {tickerData.provisionalSub}
           </div>
         </div>
@@ -572,7 +597,7 @@ export default function App() {
               </label>
               <select
                 value={targetMode}
-                onChange={(e) => setTargetMode(e.target.value)}
+                onChange={(e) => handleTargetModeChange(e.target.value)}
                 className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
               >
                 <option value="Anno solare">Anno solare</option>
@@ -685,9 +710,26 @@ export default function App() {
                 >
                   {[...weeklyList].reverse().map((w, idx) => {
                     const meta = getWeekMeta(w.data);
+                    const s = meta.obsStart;
+                    const e = meta.obsEnd;
+                    let rangeStr = "";
+                    if (s && e) {
+                      const sD = String(s.getDate()).padStart(2, "0");
+                      const sM = String(s.getMonth() + 1).padStart(2, "0");
+                      const sY = String(s.getFullYear()).slice(-2);
+                      const eD = String(e.getDate()).padStart(2, "0");
+                      const eM = String(e.getMonth() + 1).padStart(2, "0");
+                      const eY = String(e.getFullYear()).slice(-2);
+                      rangeStr = `${sD}/${sM}/${sY} - ${eD}/${eM}/${eY}`;
+                    }
+                    const yy = String(meta.isoYear).slice(-2);
+                    const label = idx === 0
+                      ? `Ultima Settimana - ${meta.isoWeek}/${yy} (${rangeStr})`
+                      : `Settimana ${meta.isoWeek} (${rangeStr})`;
+
                     return (
                       <option key={w.data} value={idx}>
-                        {idx === 0 ? `Ultima Settimana - ${meta.label}` : meta.label}
+                        {label}
                       </option>
                     );
                   })}
