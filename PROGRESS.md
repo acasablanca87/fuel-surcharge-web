@@ -72,3 +72,7 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
     - Riformattate le opzioni del select "Settimana di Rilevazione Gasolio": `"Ultima Settimana - W/YY (DD/MM/YY - DD/MM/YY)"` per la più recente (senza ripetizione di "settimana") e `"Settimana W (DD/MM/YY - DD/MM/YY)"` per tutte le precedenti con anno a due cifre.
     - Implementato switch automatico per la modalità target "Singolo Mese" che imposta come default Dicembre dell'ultimo anno solare consolidato (Dicembre 2025), sincronizzando immediatamente il calcolo del surcharge.
     - Collaudata con esito positivo la build di produzione (`npm run build`).
+  - **Troubleshooting GitHub Actions & Ingestione MASE (22 Settembre 2026):**
+    - Risolto mancato trigger automatico del martedì in `.github/workflows/update_data.yml`: rimosso attributo non supportato `timezone: 'Europe/Rome'` e ricondotte tutte le espressioni cron a UTC standard (`09:53` e `10:53` UTC per pre-mezzogiorno; `10,11,12` UTC per la fascia clou; `14,16` UTC per il recupero pomeridiano; `7,8` UTC per il mercoledì di fallback).
+    - Eseguito scraping e validazione nuovi dati MASE settimanali (settimana del 21/09/2026, prezzo pompa: 2.2814 €/L) registrati in `src/data/gasolio_mase.json`.
+    - Verificata la build di produzione (`npm run build`) ed eseguiti commit e push su branch `main`.
