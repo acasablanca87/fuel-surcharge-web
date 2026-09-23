@@ -117,3 +117,9 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
     - Introdotto pulsante rapido *"Copia parametri contratto"* per riallineare istantaneamente il laboratorio al contratto principale impostato in cima alla pagina.
     - Bonificato l'import residuo di `History` (riducendo i warning linter a 1 solo warning preesistente su useEffect).
     - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0 in 4.77s).
+  - **Risoluzione Bug Schermata Bianca all'Avvio (23 Settembre 2026):**
+    - Risolto il crash all'avvio che causava un flash iniziale seguito da pagina completamente bianca (`ReferenceError: setSimBasePrice is not defined`).
+    - Causa radice: nel precedente refactoring del Laboratorio di Calcolo erano rimasti due `useEffect` orfani in `src/App.jsx` che tentavano di invocare `setSimBasePrice` e `setSimWeight` (variabili di stato del vecchio simulatore eliminato).
+    - Rimossi chirurgicamente gli hook orfani; confermato che il Laboratorio di Calcolo gestisce autonomamente lo stato con `syncWithContract`.
+    - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0).
+

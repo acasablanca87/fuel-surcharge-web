@@ -205,14 +205,6 @@ export default function App() {
     }
   }, [targetMode, selYear, selTargetMonthIdx, tgtStartDate, tgtEndDate, activeKey, annualDict, monthlyList, weeklyList]);
 
-  // Pre-popola il simulatore con il prezzo target e il peso
-  useEffect(() => {
-    if (targetPrice > 0) setSimBasePrice(Number(targetPrice.toFixed(3)));
-  }, [targetPrice]);
-
-  useEffect(() => {
-    if (fuelWeight > 0) setSimWeight(fuelWeight);
-  }, [fuelWeight]);
 
   // --- CALCOLO DEI 3 RIFERIMENTI OPERATIVI LIVE ---
   const liveData = useMemo(() => {
