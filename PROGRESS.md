@@ -76,3 +76,44 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
     - Risolto mancato trigger automatico del martedì in `.github/workflows/update_data.yml`: rimosso attributo non supportato `timezone: 'Europe/Rome'` e ricondotte tutte le espressioni cron a UTC standard (`09:53` e `10:53` UTC per pre-mezzogiorno; `10,11,12` UTC per la fascia clou; `14,16` UTC per il recupero pomeridiano; `7,8` UTC per il mercoledì di fallback).
     - Eseguito scraping e validazione nuovi dati MASE settimanali (settimana del 21/09/2026, prezzo pompa: 2.2814 €/L) registrati in `src/data/gasolio_mase.json`.
     - Verificata la build di produzione (`npm run build`) ed eseguiti commit e push su branch `main`.
+  - **Riprogettazione Architetturale e Visiva Globale (22 Settembre 2026):**
+    - Eliminazione delle ridondanze e semplificazione dell'Header istituzionale con data dinamica dell'ultimo aggiornamento ministeriale.
+    - Semplificazione del pannello di partenza: solo 3 parametri base contrattuali (Base di prezzo, Incidenza %, Periodo base target), rimosso il selettore ambiguo di granularità/data puntuale.
+    - Introduzione della **Stanza Operativa del Surcharge**:
+      - Cruscotto a 3 indicatori temporali live coordinati (*Mese Consolidato* per fatturazione ufficiale, *Mese in Corso* per proiezione provvisoria, *Ultima Settimana* per termometro spot).
+      - Matrice a scaglioni contrattuale compatta con partenza fissa da 0,00% (che evidenzia il prezzo base target) ed estensione simmetrica.
+      - 3 colonne di riferimento nell'header della matrice con frecce puntatore (`← [prezzo] €/L`) per guidare la visual inspection verso lo scaglione attivo.
+    - Sezione Analisi Fuel Surcharge dedicata: grafico trend bi-curva post-base (Pompa vs Netto) con toggle `[ Mensile | Settimanale ]` e Simulatore What-If integrato.
+    - Sezione Archivio MASE in fondo alla pagina riorganizzata a 2 Tab puliti (*Andamento Storico Prezzi Gasolio* con range slider e *Consultazione Libera Prezzi* a 5 criteri).
+    - Risoluzione dei linter warning e collaudo con esito positivo di `npm run lint` e `npm run build`.
+  - **Fine-Tuning Operativo Layout & Matrice a Scaglioni (22 Settembre 2026):**
+    - **Griglia 2x2 Parametri di Base:** Riorganizzata la sezione in una griglia simmetrica perfettamente bilanciata (Sinistra: Base di Prezzo Ministeriale + Incidenza costo gasolio; Destra: Modalità Periodo Base + Selezione Periodo Specifico).
+    - **Riorganizzazione Sequenza Hero Cards:** Aggiornato l'ordine operativo dei 3 indicatori: 1° *Mese Consolidato* (Fatturazione Ufficiale), 2° *Ultima Settimana* (Termometro Live MASE), 3° *Mese in Corso* (Stima Provvisoria).
+    - **Rifinitura Matrice a Scaglioni:**
+      - Partenza fissa da 0,00% a salire (`lowerBound = 0.0`), eliminando gli scaglioni negativi per massima linearità operativa.
+      - Riga 0,00% resa neutra (rimosso badge "Base" e sfondo azzurro differenziato, uniformata alla visual identity pulita).
+      - Header sticky integrato (`sticky top-14 bg-slate-100 z-10 shadow-xs`) per mantenere visibili le intestazioni durante lo scorrimento e sbloccarsi al termine della tabella.
+      - Riordinate le 3 colonne dei riferimenti rilevati (*Mese Consolidato*, *Ultima Settimana*, *Mese Provvisorio*) per rispecchiare fedelmente l'ordine dei card superiori.
+      - Compattato il padding verticale delle celle a `py-1.5 px-3` per ridurre l'ingombro.
+    - **Layout Analisi Fuel Surcharge a Tutta Larghezza (Stacked):**
+      - Grafico Trend Storico esteso a tutta larghezza (`w-full`) per massima leggibilità dell'asse temporale e delle curve bi-variate.
+      - Simulatore What-If Libero riposizionato sotto il grafico a tutta larghezza con disposizione orizzontale su 4 colonne (Prezzo Base, Prezzo Stimato, Incidenza, Box Risultato sintetico con Surcharge %, Delta % e fascia).
+    - Verificata la conformità del codice con `npm run lint` e collaudata la build di produzione (`npm run build`, exit code 0).
+  - **Fine-Tuning Nomi e Micro-Copy (22 Settembre 2026):**
+    - Titolo sezione parametri: aggiornato a *"Parametri di base per il calcolo del Fuel Surcharge"*.
+    - Titolo e sottotitolo cruscotto: aggiornati a *"Quadro Fuel Surcharge attuale"* e *"Adeguamento tariffario calcolato sulle rilevazioni ministeriali attuali rispetto al prezzo base di..."* per rimarcare l'ancoraggio all'attualità.
+    - Hero Cards: rimossi i badge ridondanti interni (`Fatturazione Ufficiale`, `Termometro Live`, `Stima Provvisoria`) per massima pulizia visiva ("less is more").
+    - Testi delle 3 card:
+      - 1° Card: *"Ultimo Mese Consolidato"* con didascalia *"Convenzionalmente valido per la fatturazione del mese successivo."*.
+      - 2° Card: *"Ultima Settimana Consolidata"*, rimossa la didascalia ridondante.
+      - 3° Card: *"Mese in Corso (Stima Provvisoria)"*, rimossa la didascalia ridondante.
+    - Colonne della Matrice a scaglioni allineate coerentemente ai nuovi titoli delle hero cards (*Ultimo Mese Consolidato*, *Ultima Settimana Consolidata*, *Mese in Corso (Stima Provvisoria)*).
+    - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0 in 2.30s).
+  - **Laboratorio di Calcolo & Simulatore Completo (23 Settembre 2026):**
+    - Superata la soluzione asimmetrica a favore di una **struttura speculare a 3 colonne** (Target | Rilevazione | Risultato):
+      - **Colonna 1 (Base di Partenza / Target):** supporta tutte le modalità d'archivio (Anno solare, Singolo Mese, Range personalizzato da/a) con compilazione automatica dei prezzi ufficiali MASE, più la modalità *Valore Libero* per override numerico manuale.
+      - **Colonna 2 (Rilevazione da Valutare):** supporta Mese Storico, Settimana Storica (con metadati ISO) e *Valore Libero* per simulazioni ipotetiche.
+      - **Colonna 3 (Parametri & Risultato Surcharge):** selettore della Base Ministeriale (Pompa, Imponibile, Netto Industriale), Incidenza Gasolio (%) e Card Risultato ad alto contrasto con percentuale calcolata, delta di variazione, confronto prezzi e fascia di matrice.
+    - Introdotto pulsante rapido *"Copia parametri contratto"* per riallineare istantaneamente il laboratorio al contratto principale impostato in cima alla pagina.
+    - Bonificato l'import residuo di `History` (riducendo i warning linter a 1 solo warning preesistente su useEffect).
+    - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0 in 4.77s).

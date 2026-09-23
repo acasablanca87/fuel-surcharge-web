@@ -8,8 +8,9 @@ import createPlotlyComponent from 'react-plotly.js/factory';
 const Plot = createPlotlyComponent(Plotly);
 
 import { 
-  Sliders, Info, TrendingUp, BarChart3, Search, 
-  Calculator, BookOpen, ExternalLink, CheckCircle2
+  Sliders, TrendingUp, BarChart3, Search, 
+  Calculator, BookOpen, ExternalLink, CheckCircle2,
+  RotateCcw
 } from 'lucide-react';
 
 const priceTypeOptions = {
@@ -60,11 +61,6 @@ export default function App() {
     return !isNaN(w) && w >= 1 && w <= 100 ? w : 30;
   });
 
-  const [granularity, setGranularity] = useState(() => {
-    const g = new URLSearchParams(window.location.search).get("granularity");
-    return g && g.toLowerCase() === "settimanale" ? "Settimanale" : "Mensile";
-  });
-
   // Periodo Target (Base)
   const [targetMode, setTargetMode] = useState("Anno solare"); // "Anno solare", "Singolo Mese", "Range personalizzato"
   const [selYear, setSelYear] = useState("2025");
@@ -92,14 +88,13 @@ export default function App() {
     }
   };
 
-  // Rilevazione da valutare
-  const [selMonthIdx, setSelMonthIdx] = useState(0); // 0 = più recente
-  const [selWeekIdx, setSelWeekIdx] = useState(0);   // 0 = più recente
+  // Granularità del grafico trend Surcharge
+  const [trendGranularity, setTrendGranularity] = useState("Mensile");
 
-  // Tab attivo nella suite inferiore
-  const [activeTab, setActiveTab] = useState("chart");
+  // Tab attivo nella sezione archivio MASE (in fondo)
+  const [archiveTab, setArchiveTab] = useState("chart");
 
-  // --- STATO QUICK LOOKUP (Tab 3) ---
+  // --- STATO QUICK LOOKUP ---
   const [lookupMode, setLookupMode] = useState("Intervallo Date");
   const [lkStartDate, setLkStartDate] = useState(() => defaultMonthStartISO);
   const [lkEndDate, setLkEndDate] = useState(() => maxAvailDateISO);
@@ -117,22 +112,43 @@ export default function App() {
     }
   }, [maxAvailDateISO, defaultMonthStartISO]);
 
-  // --- STATO SIMULATORE WHAT-IF (Tab 4) ---
-  const [simBasePrice, setSimBasePrice] = useState(1.650);
-  const [simEvalPrice, setSimEvalPrice] = useState(1.820);
-  const [simWeight, setSimWeight] = useState(30);
+  // --- STATO LABORATORIO DI CALCOLO & SIMULATORE COMPLETO ---
+  const [labPriceType, setLabPriceType] = useState(() => priceType);
+  const [labWeight, setLabWeight] = useState(() => fuelWeight);
+
+  // Colonna 1: Base di Partenza (Target)
+  const [labTargetMode, setLabTargetMode] = useState("Anno solare"); // "Anno solare", "Singolo Mese", "Range personalizzato", "Valore Libero"
+  const [labTargetYear, setLabTargetYear] = useState("2025");
+  const [labTargetMonthIdx, setLabTargetMonthIdx] = useState(0);
+  const [labTargetStartDate, setLabTargetStartDate] = useState("2025-01-01");
+  const [labTargetEndDate, setLabTargetEndDate] = useState("2025-12-31");
+  const [labCustomBasePrice, setLabCustomBasePrice] = useState(1.650);
+
+  // Colonna 2: Periodo da Valutare (Rilevazione)
+  const [labEvalMode, setLabEvalMode] = useState("Mese Storico"); // "Mese Storico", "Settimana", "Valore Libero"
+  const [labEvalMonthIdx, setLabEvalMonthIdx] = useState(0); // 0 = ultimo mese consolidato
+  const [labEvalWeekIdx, setLabEvalWeekIdx] = useState(0); // 0 = ultima settimana
+  const [labCustomEvalPrice, setLabCustomEvalPrice] = useState(1.628);
 
   // Sincronizzazione parametri URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     params.set("price_type", priceType);
     params.set("weight", fuelWeight.toString());
-    params.set("granularity", granularity.toLowerCase());
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', newUrl);
-  }, [priceType, fuelWeight, granularity]);
+  }, [priceType, fuelWeight]);
 
   const activeKey = priceKeys[priceType];
+
+  // Data ultima rilevazione MASE per l'header
+  const lastUpdateDateStr = useMemo(() => {
+    if (!weeklyList.length) return "N/D";
+    const raw = weeklyList[weeklyList.length - 1].data;
+    const parts = raw.split("-");
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return raw;
+  }, [weeklyList]);
 
   // --- CALCOLO PREZZO TARGET (ANNO, MESE O RANGE PERSONALIZZATO) ---
   const { targetPrice, targetPricePompa, targetPriceNetto, targetLabel, targetEndDate } = useMemo(() => {
@@ -189,63 +205,153 @@ export default function App() {
     }
   }, [targetMode, selYear, selTargetMonthIdx, tgtStartDate, tgtEndDate, activeKey, annualDict, monthlyList, weeklyList]);
 
-  // Pre-popola il simulatore con il prezzo target
+  // Pre-popola il simulatore con il prezzo target e il peso
   useEffect(() => {
     if (targetPrice > 0) setSimBasePrice(Number(targetPrice.toFixed(3)));
   }, [targetPrice]);
 
-  // --- CALCOLO PREZZO RILEVATO (ATTUALE) ---
-  const { currentPrice, evalLabel, commercialText } = useMemo(() => {
-    if (granularity === "Mensile" && monthlyList.length > 0) {
-      const reversedMonthly = [...monthlyList].reverse();
-      const record = reversedMonthly[selMonthIdx] || reversedMonthly[0];
-      const p = record[activeKey] || 0;
-      const mName = record.nome_mese;
-      const yNum = record.anno;
-      return {
-        currentPrice: p,
-        evalLabel: `${mName} ${yNum}`,
-        commercialText: `Percentuale rilevata su ${mName} ${yNum}, convenzionalmente valida per la fatturazione del mese successivo.`
-      };
-    } else if (weeklyList.length > 0) {
-      const reversedWeekly = [...weeklyList].reverse();
-      const record = reversedWeekly[selWeekIdx] || reversedWeekly[0];
-      const meta = getWeekMeta(record.data);
-      const p = record[activeKey] || 0;
-      return {
-        currentPrice: p,
-        evalLabel: meta.label,
-        commercialText: `Percentuale rilevata sulla settimana selezionata, convenzionalmente valida per la fatturazione della settimana successiva.`
-      };
+  useEffect(() => {
+    if (fuelWeight > 0) setSimWeight(fuelWeight);
+  }, [fuelWeight]);
+
+  // --- CALCOLO DEI 3 RIFERIMENTI OPERATIVI LIVE ---
+  const liveData = useMemo(() => {
+    // 1. Ultimo Mese Consolidato
+    let monthPrice = 0;
+    let monthTitle = "N/D";
+    let monthDelta = 0;
+    let monthSurcharge = 0;
+
+    if (monthlyList.length > 0) {
+      const lastM = monthlyList[monthlyList.length - 1];
+      monthPrice = lastM[activeKey] || 0;
+      monthTitle = `${lastM.nome_mese} ${lastM.anno}`;
+      const res = calculateSurcharge(targetPrice, monthPrice, fuelWeight);
+      monthDelta = res.deltaPct;
+      monthSurcharge = res.surchargePct;
     }
-    return { currentPrice: 0, evalLabel: "N/D", commercialText: "" };
-  }, [granularity, monthlyList, weeklyList, selMonthIdx, selWeekIdx, activeKey]);
 
-  // (Pre-popolamento spostato e sincronizzato con la Consultazione Rapida)
+    // 2. Mese Corrente (Provvisorio)
+    let hasProvisional = false;
+    let provPrice = 0;
+    let provTitle = "N/D";
+    let provCount = 0;
+    let provDelta = 0;
+    let provSurcharge = 0;
 
-  // --- CALCOLO DEL SURCHARGE ATTUALE ---
-  const { deltaPct, surchargePct } = useMemo(() => {
-    return calculateSurcharge(targetPrice, currentPrice, fuelWeight);
-  }, [targetPrice, currentPrice, fuelWeight]);
+    if (weeklyList.length > 0) {
+      const lastWeek = weeklyList[weeklyList.length - 1];
+      const [wYStr, wMStr] = lastWeek.data.split("-");
+      const wYear = Number(wYStr);
+      const wMonth = Number(wMStr);
 
-  // --- RIGHE MATRICE A SCAGLIONI (±0,5%) ---
+      const isConsolidated = monthlyList.some((m) => m.anno === wYear && m.mese === wMonth);
+      if (!isConsolidated) {
+        const provisionalWeeks = weeklyList.filter((w) => {
+          const [y, m] = w.data.split("-").map(Number);
+          return y === wYear && m === wMonth;
+        });
+
+        if (provisionalWeeks.length > 0) {
+          hasProvisional = true;
+          provCount = provisionalWeeks.length;
+          const monthNames = [
+            "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+            "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+          ];
+          provTitle = `${monthNames[wMonth - 1]} ${wYear}`;
+          const sum = provisionalWeeks.reduce((acc, curr) => acc + (curr[activeKey] || 0), 0);
+          provPrice = sum / provCount;
+          const res = calculateSurcharge(targetPrice, provPrice, fuelWeight);
+          provDelta = res.deltaPct;
+          provSurcharge = res.surchargePct;
+        }
+      }
+    }
+
+    // 3. Ultima Settimana Rilevata
+    let weekPrice = 0;
+    let weekTitle = "N/D";
+    let weekSub = "";
+    let weekDelta = 0;
+    let weekSurcharge = 0;
+
+    if (weeklyList.length > 0) {
+      const lastW = weeklyList[weeklyList.length - 1];
+      weekPrice = lastW[activeKey] || 0;
+      const meta = getWeekMeta(lastW.data);
+      if (meta.isoWeek && meta.isoYear) {
+        weekTitle = `Sett. ${String(meta.isoWeek).padStart(2, "0")}/${String(meta.isoYear).slice(-2)}`;
+      }
+      const s = meta.obsStart;
+      const e = meta.obsEnd;
+      if (s && e) {
+        const sStr = `${String(s.getDate()).padStart(2, "0")}/${String(s.getMonth() + 1).padStart(2, "0")}`;
+        const eStr = `${String(e.getDate()).padStart(2, "0")}/${String(e.getMonth() + 1).padStart(2, "0")}`;
+        weekSub = `${sStr} - ${eStr}`;
+      }
+      const res = calculateSurcharge(targetPrice, weekPrice, fuelWeight);
+      weekDelta = res.deltaPct;
+      weekSurcharge = res.surchargePct;
+    }
+
+    return {
+      monthPrice,
+      monthTitle,
+      monthDelta,
+      monthSurcharge,
+      hasProvisional,
+      provPrice,
+      provTitle,
+      provCount,
+      provDelta,
+      provSurcharge,
+      weekPrice,
+      weekTitle,
+      weekSub,
+      weekDelta,
+      weekSurcharge
+    };
+  }, [monthlyList, weeklyList, activeKey, targetPrice, fuelWeight]);
+
+  // --- RIGHE MATRICE A SCAGLIONI (PASSI DA 0,5% CON PARTENZA DA 0,00% A SALIRE) ---
   const bracketRows = useMemo(() => {
-    const center = Math.round(surchargePct * 2) / 2;
+    const { monthPrice, hasProvisional, provPrice, weekPrice, monthSurcharge, provSurcharge, weekSurcharge } = liveData;
+
+    const surcharges = [monthSurcharge, weekSurcharge];
+    if (hasProvisional) surcharges.push(provSurcharge);
+
+    const maxSur = Math.max(...surcharges, 4.0);
+    const lowerBound = 0.0;
+    const upperBound = Math.max(5.0, Math.ceil((maxSur + 0.75) * 2) / 2);
+
     const steps = [];
-    for (let i = -5; i <= 5; i++) {
-      steps.push(Number((center + i * 0.5).toFixed(2)));
+    for (let s = lowerBound; s <= upperBound + 0.001; s = Number((s + 0.5).toFixed(2))) {
+      steps.push(s);
     }
+
     return steps.map((s) => {
       const [pMin, pMax] = priceBracket(targetPrice, s, fuelWeight);
-      const isCurrent = surchargePct >= s - 0.25 && surchargePct < s + 0.25;
-      return { s, pMin, pMax, isCurrent };
+      const isBase = Math.abs(s) < 0.0001;
+      const matchMonth = monthPrice >= pMin && monthPrice < pMax;
+      const matchWeek = weekPrice >= pMin && weekPrice < pMax;
+      const matchProv = hasProvisional && provPrice >= pMin && provPrice < pMax;
+      return {
+        s,
+        pMin,
+        pMax,
+        isBase,
+        matchMonth,
+        matchWeek,
+        matchProv
+      };
     });
-  }, [surchargePct, targetPrice, fuelWeight]);
+  }, [liveData, targetPrice, fuelWeight]);
 
-  // --- DATI PER GRAFICO 2: TREND SURCHARGE (Post Periodo Target) ---
+  // --- DATI PER GRAFICO TREND SURCHARGE (Post Periodo Target) ---
   const surchargeTrendData = useMemo(() => {
     const points = [];
-    if (granularity === "Mensile") {
+    if (trendGranularity === "Mensile") {
       monthlyList.forEach((row) => {
         const rowDate = new Date(row.anno, row.mese, 0);
         if (rowDate > targetEndDate) {
@@ -277,9 +383,9 @@ export default function App() {
       });
     }
     return points;
-  }, [granularity, monthlyList, weeklyList, targetEndDate, targetPricePompa, targetPriceNetto, fuelWeight]);
+  }, [trendGranularity, monthlyList, weeklyList, targetEndDate, targetPricePompa, targetPriceNetto, fuelWeight]);
 
-  // --- DATI QUICK LOOKUP (Tab 3) ---
+  // --- DATI QUICK LOOKUP ---
   const lookupResult = useMemo(() => {
     if (lookupMode === "Intervallo Date") {
       const matched = weeklyList.filter((item) => {
@@ -348,174 +454,108 @@ export default function App() {
     }
   }, [lookupMode, lkStartDate, lkEndDate, lkYear, lkMonthIdx, lkWeekIdx, lkExactDate, weeklyList, monthlyList, annualDict]);
 
-  // Pre-popola il prezzo stimato nel simulatore con il prezzo della Consultazione Rapida (Tab 3)
-  useEffect(() => {
-    if (lookupResult) {
-      const p = activeKey === "prezzo_pompa" 
-        ? lookupResult.pompa 
-        : (activeKey === "imponibile" ? lookupResult.imponibile : lookupResult.netto);
-      if (p > 0) setSimEvalPrice(Number(p.toFixed(3)));
-    } else if (currentPrice > 0) {
-      setSimEvalPrice(Number(currentPrice.toFixed(3)));
+  const labActiveKey = priceKeys[labPriceType] || "prezzo_pompa";
+
+  // Calcolo Prezzo Base (Target) del Laboratorio
+  const { labBasePrice, labTargetLabel } = useMemo(() => {
+    if (labTargetMode === "Valore Libero") {
+      return {
+        labBasePrice: labCustomBasePrice,
+        labTargetLabel: "Valore personalizzato"
+      };
     }
-  }, [lookupResult, activeKey, currentPrice]);
-
-  // --- CALCOLO SIMULATORE WHAT-IF (Tab 4) ---
-  const simResult = useMemo(() => {
-    const { deltaPct: sDeltaPct, surchargePct: sSurPct } = calculateSurcharge(simBasePrice, simEvalPrice, simWeight);
-    const sStep = Math.round(sSurPct * 2) / 2;
-    const [pMin, pMax] = priceBracket(simBasePrice, sStep, simWeight);
-    return { sDeltaPct, sSurPct, sStep, pMin, pMax };
-  }, [simBasePrice, simEvalPrice, simWeight]);
-
-  // --- DATI TICKER FINANZIARIO HEADER (Prezzo Ultima Settimana, Ultimo Mese Consolidato, Mese Corrente Provvisorio) ---
-  const tickerData = useMemo(() => {
-    // 1. Ultima Settimana Rilevata
-    let lastWeekPrice = "N/D";
-    let lastWeekLabel = "N/D";
-    let lastWeekTitle = "Ultima Settimana";
-    if (weeklyList.length > 0) {
-      const lastWeek = weeklyList[weeklyList.length - 1];
-      const p = lastWeek[activeKey];
-      lastWeekPrice = p !== undefined && p !== null ? `${fmtIt(p)} €/L` : "N/D";
-      const meta = getWeekMeta(lastWeek.data);
-      if (meta.isoWeek && meta.isoYear) {
-        lastWeekTitle = `Ultima Settimana (${meta.isoWeek}/${String(meta.isoYear).slice(-2)})`;
-      }
-      const s = meta.obsStart;
-      const e = meta.obsEnd;
-      if (s && e) {
-        const sStr = `${String(s.getDate()).padStart(2, '0')}/${String(s.getMonth() + 1).padStart(2, '0')}/${String(s.getFullYear()).slice(-2)}`;
-        const eStr = `${String(e.getDate()).padStart(2, '0')}/${String(e.getMonth() + 1).padStart(2, '0')}/${String(e.getFullYear()).slice(-2)}`;
-        lastWeekLabel = `Media dal ${sStr} al ${eStr}`;
-      } else {
-        lastWeekLabel = meta.label;
-      }
+    if (labTargetMode === "Anno solare") {
+      const p = annualDict[labTargetYear]?.[labActiveKey] || 0;
+      return {
+        labBasePrice: Number(p.toFixed(3)),
+        labTargetLabel: `Media Anno ${labTargetYear}`
+      };
     }
-
-    // 2. Ultimo Mese Consolidato
-    let lastMonthPrice = "N/D";
-    let lastMonthTitle = "N/D";
-    if (monthlyList.length > 0) {
-      const lastM = monthlyList[monthlyList.length - 1];
-      const p = lastM[activeKey];
-      lastMonthPrice = p !== undefined && p !== null ? `${fmtIt(p)} €/L` : "N/D";
-      lastMonthTitle = `${lastM.nome_mese} ${lastM.anno}`;
+    if (labTargetMode === "Singolo Mese") {
+      const reversed = [...monthlyList].reverse();
+      const m = reversed[labTargetMonthIdx];
+      const p = m?.[labActiveKey] || 0;
+      return {
+        labBasePrice: Number(p.toFixed(3)),
+        labTargetLabel: m ? `${m.nome_mese} ${m.anno}` : ""
+      };
     }
-
-    // 3. Mese Corrente (Provvisorio)
-    let hasProvisional = false;
-    let provisionalPrice = "N/D";
-    let provisionalTitle = "N/D";
-    let provisionalSub = "";
-
-    if (weeklyList.length > 0) {
-      const lastWeek = weeklyList[weeklyList.length - 1];
-      const [wYStr, wMStr] = lastWeek.data.split("-");
-      const wYear = Number(wYStr);
-      const wMonth = Number(wMStr);
-
-      const isConsolidated = monthlyList.some((m) => m.anno === wYear && m.mese === wMonth);
-      if (!isConsolidated) {
-        const provisionalWeeks = weeklyList.filter((w) => {
-          const [y, m] = w.data.split("-").map(Number);
-          return y === wYear && m === wMonth;
-        });
-
-        if (provisionalWeeks.length > 0) {
-          hasProvisional = true;
-          const monthNames = [
-            "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-            "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-          ];
-          provisionalTitle = `${monthNames[wMonth - 1]} ${wYear}`;
-          const sum = provisionalWeeks.reduce((acc, curr) => acc + (curr[activeKey] || 0), 0);
-          const avg = sum / provisionalWeeks.length;
-          provisionalPrice = `${fmtIt(avg)} €/L`;
-          provisionalSub = `Media su ${provisionalWeeks.length} ${provisionalWeeks.length === 1 ? "rilevazione" : "rilevazioni"}`;
-        }
-      }
+    if (labTargetMode === "Range personalizzato") {
+      const start = new Date(labTargetStartDate);
+      const end = new Date(labTargetEndDate);
+      const matched = weeklyList.filter((r) => {
+        const d = new Date(r.data);
+        return d >= start && d <= end;
+      });
+      const p = matched.length > 0 ? (matched.reduce((acc, r) => acc + (r[labActiveKey] || 0), 0) / matched.length) : 0;
+      const [sY, sM, sD] = labTargetStartDate.split("-");
+      const [eY, eM, eD] = labTargetEndDate.split("-");
+      return {
+        labBasePrice: Number(p.toFixed(3)),
+        labTargetLabel: `Media ${sD}/${sM}/${sY?.slice(-2)} - ${eD}/${eM}/${eY?.slice(-2)}`
+      };
     }
+    return { labBasePrice: labCustomBasePrice, labTargetLabel: "" };
+  }, [labTargetMode, labTargetYear, labTargetMonthIdx, labTargetStartDate, labTargetEndDate, labCustomBasePrice, labActiveKey, annualDict, monthlyList, weeklyList]);
 
-    return {
-      lastWeekTitle,
-      lastWeekPrice,
-      lastWeekLabel,
-      lastMonthPrice,
-      lastMonthTitle,
-      hasProvisional,
-      provisionalPrice,
-      provisionalTitle,
-      provisionalSub
-    };
-  }, [weeklyList, monthlyList, activeKey]);
+  // Calcolo Prezzo Rilevato del Laboratorio
+  const { labEvalPrice, labEvalLabel } = useMemo(() => {
+    if (labEvalMode === "Valore Libero") {
+      return {
+        labEvalPrice: labCustomEvalPrice,
+        labEvalLabel: "Valore personalizzato"
+      };
+    }
+    if (labEvalMode === "Mese Storico") {
+      const reversed = [...monthlyList].reverse();
+      const m = reversed[labEvalMonthIdx];
+      const p = m?.[labActiveKey] || 0;
+      return {
+        labEvalPrice: Number(p.toFixed(3)),
+        labEvalLabel: m ? `${m.nome_mese} ${m.anno}` : ""
+      };
+    }
+    if (labEvalMode === "Settimana") {
+      const reversed = [...weeklyList].reverse();
+      const w = reversed[labEvalWeekIdx];
+      const p = w?.[labActiveKey] || 0;
+      const meta = w ? getWeekMeta(w.data) : null;
+      return {
+        labEvalPrice: Number(p.toFixed(3)),
+        labEvalLabel: meta ? `Settimana ${meta.weekNumber}/${meta.yearShort} (${meta.subText})` : ""
+      };
+    }
+    return { labEvalPrice: labCustomEvalPrice, labEvalLabel: "" };
+  }, [labEvalMode, labEvalMonthIdx, labEvalWeekIdx, labCustomEvalPrice, labActiveKey, monthlyList, weeklyList]);
 
-  // --- COMPONENTE TICKER BOXES (CONDIVISO TRA DESKTOP E MOBILE) ---
-  const tickerBoxesNode = (
-    <>
-      {/* 1. Ultima Settimana Rilevata */}
-      <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
-        <div className="h-4 flex items-center justify-between">
-          <span className="text-[10.5px] font-semibold text-[#0F2D59] truncate">
-            {tickerData.lastWeekTitle}
-          </span>
-        </div>
-        <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
-          {tickerData.lastWeekPrice}
-        </div>
-        <div className="text-[10.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
-          {tickerData.lastWeekLabel}
-        </div>
-      </div>
+  // Calcolo Risultato Surcharge nel Laboratorio
+  const labResult = useMemo(() => {
+    const { deltaPct: lDeltaPct, surchargePct: lSurPct } = calculateSurcharge(labBasePrice, labEvalPrice, labWeight);
+    const lStep = Math.round(lSurPct * 2) / 2;
+    const [pMin, pMax] = priceBracket(labBasePrice, lStep, labWeight);
+    return { lDeltaPct, lSurPct, lStep, pMin, pMax };
+  }, [labBasePrice, labEvalPrice, labWeight]);
 
-      {/* 2. Ultimo Mese Consolidato */}
-      <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
-        <div className="h-4 flex items-center justify-between gap-1">
-          <span className="text-[10.5px] font-semibold text-[#0F2D59] truncate">
-            {tickerData.lastMonthTitle}
-          </span>
-          <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#0F2D59] border border-slate-200/90 rounded leading-none shrink-0">
-            CONSOLIDATO
-          </span>
-        </div>
-        <div className="text-sm font-bold text-[#0F2D59] tracking-tight leading-none">
-          {tickerData.lastMonthPrice}
-        </div>
-        <div className="text-[10.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
-          Media mensile ufficiale
-        </div>
-      </div>
-
-      {/* 3. Mese Corrente (Provvisorio) */}
-      {tickerData.hasProvisional && (
-        <div className="w-full sm:w-[208px] h-[76px] bg-slate-50 border border-slate-200/90 rounded-xl px-3 py-2 flex flex-col justify-between shadow-2xs hover:bg-slate-100/70 transition-colors shrink-0">
-          <div className="h-4 flex items-center justify-between gap-1">
-            <span className="text-[10.5px] font-semibold text-[#8C9AA8] truncate">
-              {tickerData.provisionalTitle}
-            </span>
-            <span className="text-[8.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 bg-transparent text-[#8C9AA8] border border-[#8C9AA8]/40 rounded leading-none shrink-0">
-              PROVVISORIO
-            </span>
-          </div>
-          <div className="text-sm font-bold text-[#8C9AA8] tracking-tight leading-none">
-            {tickerData.provisionalPrice}
-          </div>
-          <div className="text-[10.5px] font-normal text-slate-500 whitespace-nowrap leading-none">
-            {tickerData.provisionalSub}
-          </div>
-        </div>
-      )}
-    </>
-  );
+  // Funzione per copiare istantaneamente i parametri del contratto principale nel laboratorio
+  const syncWithContract = () => {
+    setLabPriceType(priceType);
+    setLabWeight(fuelWeight);
+    setLabTargetMode(targetMode);
+    setLabTargetYear(selYear);
+    setLabTargetMonthIdx(selTargetMonthIdx);
+    setLabTargetStartDate(tgtStartDate);
+    setLabTargetEndDate(tgtEndDate);
+    if (targetPrice > 0) {
+      setLabCustomBasePrice(Number(targetPrice.toFixed(3)));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans pb-16 antialiased selection:bg-sky-500 selection:text-white">
       
-      {/* 1. TOP BAR BRAND (SLIM & STICKY SU TUTTI I DISPOSITIVI) */}
+      {/* 1. TOP BAR BRAND (PULITA, ISTITUZIONALE E AUTOREVOLE) */}
       <header className="bg-white border-b border-slate-200/90 shadow-xs sticky top-0 z-50 font-titillium">
-        <div className="max-w-6xl mx-auto px-4 py-2.5 md:py-3 flex flex-row items-center justify-between gap-4">
-          
-          {/* Header Sinistro: Brand & Istituzionalità */}
+        <div className="max-w-6xl mx-auto px-4 py-3 flex flex-row items-center justify-between gap-4">
           <div className="flex flex-col justify-center">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#0F2D59] leading-tight">
               FUEL SURCHARGE ITALIA
@@ -527,340 +567,800 @@ export default function App() {
                 className="w-4 h-4 object-contain opacity-95 shrink-0"
               />
               <span className="text-xs font-semibold text-slate-600 tracking-normal">
-                da Rilevazioni Ufficiali MASE (DGSAIE)
+                Dati Ufficiali MASE (DGSAIE) • Ultimo aggiornamento: {lastUpdateDateStr}
               </span>
             </div>
           </div>
-
-          {/* Desktop View (>768px): Ticker Finanziario orizzontale affiancato a destra nella sticky navbar */}
-          <div className="hidden md:flex items-center gap-2.5">
-            {tickerBoxesNode}
-          </div>
-
         </div>
       </header>
 
-      {/* Mobile View (<=768px): Ticker Prezzi sganciato nel flusso normale della pagina (scorre via sotto la navbar) */}
-      <div className="md:hidden max-w-6xl mx-auto px-4 pt-3.5 pb-1 font-titillium">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2.5">
-          {tickerBoxesNode}
-        </div>
-      </div>
-
       <main className="max-w-6xl mx-auto px-4 pt-4 md:pt-6 space-y-6">
 
-        {/* 1. PANNELLO DI CONTROLLO CONFIGURAZIONE */}
+        {/* 1. PANNELLO PARAMETRI DI BASE */}
         <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-5 pb-3 border-b border-slate-100">
             <Sliders className="w-5 h-5 text-sky-600" />
             <h2 className="font-bold text-slate-800 text-base md:text-lg">
-              Parametri di calcolo del Fuel Surcharge
+              Parametri di base per il calcolo del Fuel Surcharge
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-            {/* --- RIGO 1: Base di Prezzo & Incidenza --- */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Base di Prezzo Ministeriale:
-              </label>
-              <select
-                value={priceType}
-                onChange={(e) => setPriceType(e.target.value)}
-                className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
-              >
-                {Object.entries(priceTypeOptions).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Incidenza costo gasolio (%):
-              </label>
-              <select
-                value={fuelWeight}
-                onChange={(e) => setFuelWeight(Number(e.target.value))}
-                className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
-              >
-                {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>{n}%</option>
-                ))}
-              </select>
-            </div>
-
-            {/* --- RIGO 2: Modalità Target (Sinistra) & Selettore Target (Destra) --- */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Modalità del Periodo Base (Target):
-              </label>
-              <select
-                value={targetMode}
-                onChange={(e) => handleTargetModeChange(e.target.value)}
-                className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
-              >
-                <option value="Anno solare">Anno solare</option>
-                <option value="Singolo Mese">Singolo Mese</option>
-                <option value="Range personalizzato">Range personalizzato (da / a)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                {targetMode === "Anno solare" && "Periodo Target Anno Solare:"}
-                {targetMode === "Singolo Mese" && "Periodo Target Mese:"}
-                {targetMode === "Range personalizzato" && "Periodo Target Intervallo Date:"}
-              </label>
-
-              {targetMode === "Anno solare" && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Colonna Sinistra: Parametri Economici */}
+            <div className="space-y-4">
+              {/* Base di Prezzo Ministeriale */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Base di Prezzo Ministeriale:
+                </label>
                 <select
-                  value={selYear}
-                  onChange={(e) => setSelYear(e.target.value)}
-                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
+                  value={priceType}
+                  onChange={(e) => setPriceType(e.target.value)}
+                  className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
                 >
-                  {Object.keys(annualDict).sort((a,b) => b - a).map((y) => (
-                    <option key={y} value={y}>Media Anno {y}</option>
+                  {Object.entries(priceTypeOptions).map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
                   ))}
                 </select>
-              )}
+              </div>
 
-              {targetMode === "Singolo Mese" && (
+              {/* Incidenza Costo Gasolio */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Incidenza costo gasolio (%):
+                </label>
                 <select
-                  value={selTargetMonthIdx}
-                  onChange={(e) => setSelTargetMonthIdx(Number(e.target.value))}
-                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
+                  value={fuelWeight}
+                  onChange={(e) => setFuelWeight(Number(e.target.value))}
+                  className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
                 >
-                  {[...monthlyList].reverse().map((m, idx) => (
-                    <option key={`tgt-${m.anno}-${m.mese}`} value={idx}>
-                      {m.nome_mese} {m.anno}
-                    </option>
+                  {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>{n}%</option>
                   ))}
                 </select>
-              )}
+              </div>
+            </div>
 
-              {targetMode === "Range personalizzato" && (
-                <div className="grid grid-cols-2 gap-2">
-                  <input 
-                    type="date"
-                    max={maxAvailDateISO}
-                    value={tgtStartDate}
-                    onChange={(e) => setTgtStartDate(e.target.value)}
-                    className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3 text-sm font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-xs transition-colors"
-                  />
-                  <input 
-                    type="date"
-                    max={maxAvailDateISO}
-                    value={tgtEndDate}
-                    onChange={(e) => setTgtEndDate(e.target.value)}
-                    className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3 text-sm font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-xs transition-colors"
-                  />
+            {/* Colonna Destra: Riferimento Temporale Target */}
+            <div className="space-y-4">
+              {/* Modalità Periodo Base */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Modalità Periodo Base (Target):
+                </label>
+                <select
+                  value={targetMode}
+                  onChange={(e) => handleTargetModeChange(e.target.value)}
+                  className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
+                >
+                  <option value="Anno solare">Anno solare</option>
+                  <option value="Singolo Mese">Singolo Mese</option>
+                  <option value="Range personalizzato">Range personalizzato (da / a)</option>
+                </select>
+              </div>
+
+              {/* Periodo Target Specifico */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  {targetMode === "Anno solare" && "Anno Solare di Riferimento:"}
+                  {targetMode === "Singolo Mese" && "Mese Storico di Riferimento:"}
+                  {targetMode === "Range personalizzato" && "Intervallo Date di Riferimento:"}
+                </label>
+                {targetMode === "Anno solare" && (
+                  <select
+                    value={selYear}
+                    onChange={(e) => setSelYear(e.target.value)}
+                    className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
+                  >
+                    {Object.keys(annualDict).sort((a,b) => b - a).map((y) => (
+                      <option key={y} value={y}>Media Anno {y} ({fmtIt(annualDict[y]?.[activeKey] || 0)} €/L)</option>
+                    ))}
+                  </select>
+                )}
+
+                {targetMode === "Singolo Mese" && (
+                  <select
+                    value={selTargetMonthIdx}
+                    onChange={(e) => setSelTargetMonthIdx(Number(e.target.value))}
+                    className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
+                  >
+                    {[...monthlyList].reverse().map((m, idx) => (
+                      <option key={`tgt-${m.anno}-${m.mese}`} value={idx}>
+                        {m.nome_mese} {m.anno} ({fmtIt(m[activeKey])} €/L)
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {targetMode === "Range personalizzato" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      type="date"
+                      max={maxAvailDateISO}
+                      value={tgtStartDate}
+                      onChange={(e) => setTgtStartDate(e.target.value)}
+                      className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-xs transition-colors"
+                    />
+                    <input 
+                      type="date"
+                      max={maxAvailDateISO}
+                      value={tgtEndDate}
+                      onChange={(e) => setTgtEndDate(e.target.value)}
+                      className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none shadow-xs transition-colors"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
+            <span>
+              <b>Prezzo Base di Partenza:</b> {fmtIt(targetPrice, 3)} €/L ({targetLabel})
+            </span>
+            <span>
+              <b>Base Attiva:</b> {priceTypeOptions[priceType]}
+            </span>
+          </div>
+        </section>
+
+        {/* 2. LA STANZA OPERATIVA DEL FUEL SURCHARGE */}
+        <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-6">
+          
+          <div>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg md:text-xl">
+                  Quadro Fuel Surcharge attuale
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Adeguamento tariffario calcolato sulle rilevazioni ministeriali attuali rispetto al prezzo base di {fmtIt(targetPrice, 3)} €/L ({targetLabel}).
+                </p>
+              </div>
+            </div>
+
+            {/* I 3 CARD OPERATIVI */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+              
+              {/* 1. Ultimo Mese Consolidato */}
+              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
+                    Ultimo Mese Consolidato
+                  </div>
+                  <div className="text-sm font-semibold text-slate-200">
+                    {liveData.monthTitle}
+                  </div>
+                  <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
+                    liveData.monthSurcharge > 0.0001 ? 'text-red-400' : (liveData.monthSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
+                  }`}>
+                    {fmtIt(liveData.monthSurcharge, 2, true)} %
+                  </div>
                 </div>
-              )}
+                <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Prezzo Rilevato:</span>
+                    <b className="text-slate-200">{fmtIt(liveData.monthPrice, 3)} €/L</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Variazione Prezzo (Δ):</span>
+                    <b className="text-slate-200">{fmtIt(liveData.monthDelta, 2, true)}%</b>
+                  </div>
+                  <div className="text-[11px] text-slate-400 pt-1">
+                    Convenzionalmente valido per la fatturazione del mese successivo.
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. Ultima Settimana Consolidata */}
+              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
+                    Ultima Settimana Consolidata
+                  </div>
+                  <div className="text-sm font-semibold text-slate-200">
+                    {liveData.weekTitle} {liveData.weekSub && <span className="text-xs text-slate-400">({liveData.weekSub})</span>}
+                  </div>
+                  <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
+                    liveData.weekSurcharge > 0.0001 ? 'text-red-400' : (liveData.weekSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
+                  }`}>
+                    {fmtIt(liveData.weekSurcharge, 2, true)} %
+                  </div>
+                </div>
+                <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Prezzo Rilevato:</span>
+                    <b className="text-slate-200">{fmtIt(liveData.weekPrice, 3)} €/L</b>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Variazione Prezzo (Δ):</span>
+                    <b className="text-slate-200">{fmtIt(liveData.weekDelta, 2, true)}%</b>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Mese in Corso (Stima Provvisoria) */}
+              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
+                    Mese in Corso (Stima Provvisoria)
+                  </div>
+                  <div className="text-sm font-semibold text-slate-200">
+                    {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} ril.)` : "Nessun dato provvisorio"}
+                  </div>
+                  {liveData.hasProvisional ? (
+                    <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
+                      liveData.provSurcharge > 0.0001 ? 'text-red-400' : (liveData.provSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
+                    }`}>
+                      {fmtIt(liveData.provSurcharge, 2, true)} %
+                    </div>
+                  ) : (
+                    <div className="text-2xl font-bold text-slate-500 my-4">
+                      —
+                    </div>
+                  )}
+                </div>
+                <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
+                  {liveData.hasProvisional ? (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Media Parziale:</span>
+                        <b className="text-slate-200">{fmtIt(liveData.provPrice, 3)} €/L</b>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Variazione Prezzo (Δ):</span>
+                        <b className="text-slate-200">{fmtIt(liveData.provDelta, 2, true)}%</b>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-[11px] text-slate-400">
+                      Tutte le settimane del mese sono già state consolidate.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* MATRICE A SCAGLIONI CONTRATTUALE */}
+          <div className="pt-4 border-t border-slate-100">
+            <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h4 className="font-bold text-slate-800 text-base">
+                  Matrice a scaglioni
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Forchette di prezzo (passi da ±0,50%) calcolate a partire dalla base neutra 0,00% ({fmtIt(targetPrice, 3)} €/L).
+                </p>
+              </div>
             </div>
 
-            {/* --- RIGO 3: Periodo Rilevazione da Valutare (Sinistra) & Selettore (Destra) --- */}
+            <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs md:text-sm border-collapse min-w-[650px]">
+                <thead className="sticky top-14 z-10 shadow-xs">
+                  <tr className="bg-slate-100 text-slate-700 text-xs uppercase tracking-wider border-b border-slate-200">
+                    <th rowSpan="2" className="py-1.5 px-3 font-bold border-r border-slate-200/80 bg-slate-100">
+                      Forchetta Prezzo Gasolio
+                    </th>
+                    <th rowSpan="2" className="py-1.5 px-3 font-bold text-center border-r border-slate-200/80 bg-slate-100">
+                      Fuel Surcharge
+                    </th>
+                    <th colSpan="3" className="py-1.5 px-3 font-bold text-center border-b border-slate-200 bg-slate-100">
+                      Riferimenti Rilevati
+                    </th>
+                  </tr>
+                  <tr className="bg-slate-50 text-slate-600 text-[11px] font-semibold border-b border-slate-200">
+                    <th className="py-1 px-3 text-center border-r border-slate-200/60 w-1/5 bg-slate-50">
+                      <div>Ultimo Mese Consolidato</div>
+                      <div className="text-[10px] text-slate-400 font-normal">{liveData.monthTitle}</div>
+                    </th>
+                    <th className="py-1 px-3 text-center border-r border-slate-200/60 w-1/5 bg-slate-50">
+                      <div>Ultima Settimana Consolidata</div>
+                      <div className="text-[10px] text-slate-400 font-normal">{liveData.weekTitle}</div>
+                    </th>
+                    <th className="py-1 px-3 text-center w-1/5 bg-slate-50">
+                      <div>Mese in Corso (Stima Provvisoria)</div>
+                      <div className="text-[10px] text-slate-400 font-normal">
+                        {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} ril.)` : "—"}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {bracketRows.map((row, idx) => (
+                    <tr 
+                      key={idx} 
+                      className="transition-colors hover:bg-slate-50/80"
+                    >
+                      <td className="py-1.5 px-3 border-r border-slate-100 text-slate-800">
+                        da {fmtIt(row.pMin, 3)} € a {fmtIt(row.pMax, 3)} €
+                      </td>
+                      <td className="py-1.5 px-3 text-center font-bold border-r border-slate-100">
+                        <span className="inline-block px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-800 font-semibold">
+                          {fmtIt(row.s, 2, true)} %
+                        </span>
+                      </td>
+                      <td className="py-1.5 px-3 text-center border-r border-slate-100">
+                        {row.matchMonth ? (
+                          <span className="font-bold text-slate-900 inline-flex items-center gap-1">
+                            <span className="text-slate-400 font-normal">←</span> {fmtIt(liveData.monthPrice, 3)} €/L
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="py-1.5 px-3 text-center border-r border-slate-100">
+                        {row.matchWeek ? (
+                          <span className="font-bold text-slate-900 inline-flex items-center gap-1">
+                            <span className="text-slate-400 font-normal">←</span> {fmtIt(liveData.weekPrice, 3)} €/L
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="py-1.5 px-3 text-center">
+                        {row.matchProv ? (
+                          <span className="font-bold text-slate-900 inline-flex items-center gap-1">
+                            <span className="text-slate-400 font-normal">←</span> {fmtIt(liveData.provPrice, 3)} €/L
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+        {/* 3. ANALISI DEL FUEL SURCHARGE (TREND BI-CURVA & SIMULATORE) */}
+        <div className="space-y-6">
+          
+          {/* Grafico Trend Surcharge (A tutta larghezza) */}
+          <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Periodo Rilevazione da Valutare:
-              </label>
-              <div className="grid grid-cols-2 gap-2 h-[42px]">
-                {["Mensile", "Settimanale"].map((g) => {
-                  const isActive = granularity === g;
-                  return (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-sky-600" />
+                    Trend Storico Fuel Surcharge (%)
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Evoluzione percentuale post-base ({targetLabel}): confronto tra Base Pompa e Base Netto Industriale.
+                  </p>
+                </div>
+                <div className="inline-flex rounded-xl bg-slate-100 p-1 self-start sm:self-auto shrink-0 border border-slate-200">
+                  {["Mensile", "Settimanale"].map((g) => (
                     <button
                       key={g}
                       type="button"
-                      onClick={() => setGranularity(g)}
-                      className={`h-full rounded-xl text-sm transition-all ${
-                        isActive 
-                          ? 'bg-sky-50/90 border border-sky-300 text-sky-950 font-bold shadow-xs' 
-                          : 'bg-slate-50 border border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-600 font-medium'
+                      onClick={() => setTrendGranularity(g)}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                        trendGranularity === g
+                          ? 'bg-white text-sky-800 shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800'
                       }`}
                     >
                       {g}
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                {granularity === "Mensile" ? "Mese di Rilevazione Gasolio:" : "Settimana di Rilevazione Gasolio:"}
-              </label>
-
-              {granularity === "Mensile" ? (
-                <select
-                  value={selMonthIdx}
-                  onChange={(e) => setSelMonthIdx(Number(e.target.value))}
-                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
-                >
-                  {[...monthlyList].reverse().map((m, idx) => (
-                    <option key={`${m.anno}-${m.mese}`} value={idx}>
-                      {idx === 0 ? `Ultimo mese consolidato (${m.nome_mese} ${m.anno})` : `${m.nome_mese} ${m.anno}`}
-                    </option>
                   ))}
-                </select>
-              ) : (
-                <select
-                  value={selWeekIdx}
-                  onChange={(e) => setSelWeekIdx(Number(e.target.value))}
-                  className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
-                >
-                  {[...weeklyList].reverse().map((w, idx) => {
-                    const meta = getWeekMeta(w.data);
-                    const s = meta.obsStart;
-                    const e = meta.obsEnd;
-                    let rangeStr = "";
-                    if (s && e) {
-                      const sD = String(s.getDate()).padStart(2, "0");
-                      const sM = String(s.getMonth() + 1).padStart(2, "0");
-                      const sY = String(s.getFullYear()).slice(-2);
-                      const eD = String(e.getDate()).padStart(2, "0");
-                      const eM = String(e.getMonth() + 1).padStart(2, "0");
-                      const eY = String(e.getFullYear()).slice(-2);
-                      rangeStr = `${sD}/${sM}/${sY} - ${eD}/${eM}/${eY}`;
-                    }
-                    const yy = String(meta.isoYear).slice(-2);
-                    const label = idx === 0
-                      ? `Ultima Settimana - ${meta.isoWeek}/${yy} (${rangeStr})`
-                      : `Settimana ${meta.isoWeek} (${rangeStr})`;
+                </div>
+              </div>
 
-                    return (
-                      <option key={w.data} value={idx}>
-                        {label}
-                      </option>
-                    );
-                  })}
-                </select>
+              {surchargeTrendData.length > 0 ? (
+                <div className="w-full h-[380px] mt-2">
+                  <Plot
+                    data={[
+                      {
+                        x: surchargeTrendData.map((d) => d.label),
+                        y: surchargeTrendData.map((d) => d.surPompa),
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        name: 'Base Pompa',
+                        line: { color: '#2563eb', width: 2.2 },
+                        marker: { size: 4.5, color: '#1d4ed8' },
+                        hovertemplate: 'Base Pompa: %{y:.2f}%<extra></extra>'
+                      },
+                      {
+                        x: surchargeTrendData.map((d) => d.label),
+                        y: surchargeTrendData.map((d) => d.surNetto),
+                        type: 'scatter',
+                        mode: 'lines+markers',
+                        name: 'Base Netto Industriale',
+                        line: { color: '#f59e0b', width: 2.2, dash: 'dot' },
+                        marker: { size: 4.5, color: '#d97706' },
+                        hovertemplate: 'Base Netto: %{y:.2f}%<extra></extra>'
+                      }
+                    ]}
+                    layout={{
+                      autosize: true,
+                      margin: { l: 45, r: 15, t: 25, b: 50 },
+                      xaxis: { title: "Periodo Rilevato", tickangle: -45, automargin: true },
+                      yaxis: { title: "Percentuale Surcharge (%)" },
+                      legend: { orientation: 'h', y: 1.12, x: 0 },
+                      hovermode: 'x unified',
+                      shapes: [
+                        {
+                          type: 'line',
+                          x0: 0,
+                          x1: 1,
+                          xref: 'paper',
+                          y0: 0,
+                          y1: 0,
+                          line: { color: '#94a3b8', width: 1.5, dash: 'dash' }
+                        }
+                      ]
+                    }}
+                    useResizeHandler={true}
+                    style={{ width: '100%', height: '100%' }}
+                    config={{ displayModeBar: false, responsive: true }}
+                  />
+                </div>
+              ) : (
+                <div className="bg-sky-50 border border-sky-200 rounded-xl p-8 text-center text-sky-800 text-sm mt-4">
+                  Il Periodo Base selezionato ({targetLabel}) coincide con i dati più recenti disponibili. Seleziona un Periodo Base antecedente (es. Anno 2025) per osservare il trend nel tempo.
+                </div>
               )}
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* 2. HERO CARD SURCHARGE */}
-        <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 shadow-md border border-slate-700">
-          <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-1">
-            Fuel Surcharge Calcolato ({granularity})
-          </div>
-
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 my-2">
-            <div className={`text-4xl md:text-5xl font-black tracking-tight shrink-0 whitespace-nowrap ${
-              surchargePct > 0.0001 ? 'text-red-400' : (surchargePct < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
-            }`}>
-              {fmtIt(surchargePct, 2, true)}&nbsp;%
+          {/* Laboratorio di Calcolo & Simulatore Completo (A tutta larghezza) */}
+          <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+              <div>
+                <h4 className="font-bold text-slate-900 text-base md:text-lg flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-sky-600" />
+                  Laboratorio di Calcolo & Simulatore Completo
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Confronta liberamente qualsiasi periodo storico MASE o simula scenari ipotetici con valori personalizzati.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={syncWithContract}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition-all shadow-2xs self-start sm:self-auto cursor-pointer"
+                title="Copia i parametri del contratto principale impostati in cima alla pagina"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-sky-600" />
+                Copia parametri contratto
+              </button>
             </div>
 
-            <div className="flex flex-wrap gap-2 justify-start md:justify-end">
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
-                <b>Prezzo Rilevato:</b> {fmtIt(currentPrice, 3)} €/L <span className="text-slate-500 font-normal">|</span> {evalLabel}
-              </span>
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
-                <b>Prezzo Base:</b> {fmtIt(targetPrice, 3)} €/L <span className="text-slate-500 font-normal">|</span> {targetLabel}
-              </span>
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
-                <b>Variazione:</b> {fmtIt(deltaPct, 2, true)}%
-              </span>
-              <span className="bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-medium">
-                <b>Peso:</b> {fuelWeight}%
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-700/60 text-xs text-slate-300 flex items-start gap-2">
-            <Info className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
-            <span><b>Nota:</b> {commercialText}</span>
-          </div>
-        </section>
-
-        {/* 3. MATRICE A SCAGLIONI (PASSI DA 0,5%) */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-5 md:p-6 shadow-sm">
-          <div className="mb-4">
-            <h3 className="font-bold text-slate-800 text-base md:text-lg">
-              Matrice a scaglioni
-            </h3>
-            <p className="text-xs text-slate-500">Forchette del prezzo gasolio con relativo Fuel Surcharge (passi da ±0,50%).</p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
-                  <th className="py-3 px-4 rounded-l-xl font-bold">Forchetta Prezzo Gasolio</th>
-                  <th className="py-3 px-4 font-bold text-center">Fuel Surcharge</th>
-                  <th className="py-3 px-4 rounded-r-xl font-bold">Riferimento</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {bracketRows.map((row, idx) => (
-                  <tr 
-                    key={idx} 
-                    className={`transition-colors ${
-                      row.isCurrent 
-                        ? 'bg-red-50 font-bold text-red-900 ring-1 ring-red-200 rounded-lg' 
-                        : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <td className="py-3 px-4">
-                      da {fmtIt(row.pMin, 3)} € a {fmtIt(row.pMax, 3)} €
-                    </td>
-                    <td className="py-3 px-4 text-center font-black">
-                      <span className={`inline-block px-2.5 py-0.5 rounded ${
-                        row.isCurrent ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-800'
-                      }`}>
-                        {fmtIt(row.s, 2, true)} %
+            {/* Layout a 3 Colonne Simmetriche (Target | Rilevazione | Risultato) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+              
+              {/* COLONNA 1: BASE DI PARTENZA (TARGET) - 4 cols */}
+              <div className="lg:col-span-4 bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      1. Base di Partenza (Target)
+                    </span>
+                    {labTargetMode === "Valore Libero" && (
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
+                        Libero
                       </span>
-                    </td>
-                    <td className="py-3 px-4 text-xs">
-                      {row.isCurrent ? (
-                        <span className="inline-flex items-center gap-1.5 text-red-600 font-bold tracking-wide">
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0"></span>
-                          {fmtIt(currentPrice, 3)} €/L <span className="text-red-400 font-normal">|</span> {evalLabel}
-                        </span>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                    )}
+                  </div>
 
-        {/* 4. LA SUITE SPECIALISTICA (I 4 TAB) */}
+                  {/* Modalità Target */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Modalità Periodo Target:
+                    </label>
+                    <select
+                      value={labTargetMode}
+                      onChange={(e) => setLabTargetMode(e.target.value)}
+                      className="w-full h-[38px] bg-white border border-slate-300 rounded-xl px-3 font-semibold text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    >
+                      <option value="Anno solare">Anno solare</option>
+                      <option value="Singolo Mese">Singolo Mese</option>
+                      <option value="Range personalizzato">Range personalizzato (da / a)</option>
+                      <option value="Valore Libero">Valore Libero (manuale)</option>
+                    </select>
+                  </div>
+
+                  {/* Selettore Specifico Target */}
+                  {labTargetMode === "Anno solare" && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Anno Solare:
+                      </label>
+                      <select
+                        value={labTargetYear}
+                        onChange={(e) => setLabTargetYear(e.target.value)}
+                        className="w-full h-[38px] bg-white border border-sky-300 rounded-xl px-3 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      >
+                        {Object.keys(annualDict).sort((a,b) => b - a).map((y) => (
+                          <option key={`lab-y-${y}`} value={y}>
+                            Media Anno {y} ({fmtIt(annualDict[y]?.[labActiveKey] || 0)} €/L)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {labTargetMode === "Singolo Mese" && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Mese Storico:
+                      </label>
+                      <select
+                        value={labTargetMonthIdx}
+                        onChange={(e) => setLabTargetMonthIdx(Number(e.target.value))}
+                        className="w-full h-[38px] bg-white border border-sky-300 rounded-xl px-3 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      >
+                        {[...monthlyList].reverse().map((m, idx) => (
+                          <option key={`lab-tgt-m-${m.anno}-${m.mese}`} value={idx}>
+                            {m.nome_mese} {m.anno} ({fmtIt(m[labActiveKey])} €/L)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {labTargetMode === "Range personalizzato" && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Intervallo Date:
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input 
+                          type="date"
+                          max={maxAvailDateISO}
+                          value={labTargetStartDate}
+                          onChange={(e) => setLabTargetStartDate(e.target.value)}
+                          className="w-full h-[38px] bg-white border border-sky-300 rounded-xl px-2 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                        />
+                        <input 
+                          type="date"
+                          max={maxAvailDateISO}
+                          value={labTargetEndDate}
+                          onChange={(e) => setLabTargetEndDate(e.target.value)}
+                          className="w-full h-[38px] bg-white border border-sky-300 rounded-xl px-2 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {labTargetMode === "Valore Libero" && (
+                    <div className="p-2.5 bg-amber-50/70 border border-amber-200/70 rounded-xl text-[11px] text-amber-900">
+                      Modalità manuale attiva. Digita direttamente il prezzo base nella casella sottostante.
+                    </div>
+                  )}
+                </div>
+
+                {/* Prezzo Base Effettivo (Editabile) */}
+                <div className="pt-3 border-t border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Prezzo Base Effettivo (€/L):
+                  </label>
+                  <input 
+                    type="number" 
+                    step="0.005"
+                    value={labTargetMode === "Valore Libero" ? labCustomBasePrice : labBasePrice}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setLabCustomBasePrice(val);
+                      setLabTargetMode("Valore Libero");
+                    }}
+                    className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-3.5 text-sm font-black text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  />
+                  <div className="mt-1 text-[11px] text-slate-500 truncate">
+                    Rif: <span className="font-semibold text-slate-700">{labTargetLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* COLONNA 2: RILEVAZIONE DA VALUTARE - 4 cols */}
+              <div className="lg:col-span-4 bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      2. Rilevazione da Valutare
+                    </span>
+                    {labEvalMode === "Valore Libero" && (
+                      <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
+                        Libero
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Modalità Rilevazione */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Tipo Rilevazione:
+                    </label>
+                    <select
+                      value={labEvalMode}
+                      onChange={(e) => setLabEvalMode(e.target.value)}
+                      className="w-full h-[38px] bg-white border border-slate-300 rounded-xl px-3 font-semibold text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    >
+                      <option value="Mese Storico">Mese Storico</option>
+                      <option value="Settimana">Settimana Storica</option>
+                      <option value="Valore Libero">Valore Libero (manuale)</option>
+                    </select>
+                  </div>
+
+                  {/* Selettore Specifico Rilevazione */}
+                  {labEvalMode === "Mese Storico" && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Mese di Rilevazione:
+                      </label>
+                      <select
+                        value={labEvalMonthIdx}
+                        onChange={(e) => setLabEvalMonthIdx(Number(e.target.value))}
+                        className="w-full h-[38px] bg-white border border-sky-300 rounded-xl px-3 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      >
+                        {[...monthlyList].reverse().map((m, idx) => (
+                          <option key={`lab-eval-m-${m.anno}-${m.mese}`} value={idx}>
+                            {m.nome_mese} {m.anno} — {fmtIt(m[labActiveKey])} €/L
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {labEvalMode === "Settimana" && (
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                        Settimana di Rilevazione:
+                      </label>
+                      <select
+                        value={labEvalWeekIdx}
+                        onChange={(e) => setLabEvalWeekIdx(Number(e.target.value))}
+                        className="w-full h-[38px] bg-white border border-sky-300 rounded-xl px-3 text-xs font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      >
+                        {[...weeklyList].reverse().map((w, idx) => {
+                          const meta = getWeekMeta(w.data);
+                          return (
+                            <option key={`lab-eval-w-${w.data}`} value={idx}>
+                              Settimana {meta.weekNumber}/{meta.yearShort} ({fmtIt(w[labActiveKey])} €/L) • {meta.subText}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  )}
+
+                  {labEvalMode === "Valore Libero" && (
+                    <div className="p-2.5 bg-amber-50/70 border border-amber-200/70 rounded-xl text-[11px] text-amber-900">
+                      Modalità manuale attiva. Digita direttamente il prezzo da valutare nella casella sottostante.
+                    </div>
+                  )}
+                </div>
+
+                {/* Prezzo Rilevato Effettivo (Editabile) */}
+                <div className="pt-3 border-t border-slate-200">
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Prezzo Rilevato Effettivo (€/L):
+                  </label>
+                  <input 
+                    type="number" 
+                    step="0.005"
+                    value={labEvalMode === "Valore Libero" ? labCustomEvalPrice : labEvalPrice}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setLabCustomEvalPrice(val);
+                      setLabEvalMode("Valore Libero");
+                    }}
+                    className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-3.5 text-sm font-black text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  />
+                  <div className="mt-1 text-[11px] text-slate-500 truncate">
+                    Rif: <span className="font-semibold text-slate-700">{labEvalLabel}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* COLONNA 3: PARAMETRI & RISULTATO - 4 cols */}
+              <div className="lg:col-span-4 flex flex-col justify-between space-y-4">
+                
+                {/* Parametri di calcolo */}
+                <div className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4 space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                    3. Parametri di Calcolo
+                  </span>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Base Ministeriale:
+                    </label>
+                    <select
+                      value={labPriceType}
+                      onChange={(e) => setLabPriceType(e.target.value)}
+                      className="w-full h-[38px] bg-white border border-slate-300 rounded-xl px-3 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    >
+                      {Object.entries(priceTypeOptions).map(([k, v]) => (
+                        <option key={`lab-pt-${k}`} value={k}>{v}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Incidenza Gasolio (%):
+                    </label>
+                    <select
+                      value={labWeight}
+                      onChange={(e) => setLabWeight(Number(e.target.value))}
+                      className="w-full h-[38px] bg-white border border-slate-300 rounded-xl px-3 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                    >
+                      {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
+                        <option key={`lab-w-${n}`} value={n}>{n}%</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Card Risultato Surcharge ad alto contrasto */}
+                <div className="bg-slate-900 text-white rounded-2xl p-4.5 border border-slate-800 shadow-sm flex flex-col justify-between flex-1">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Fuel Surcharge Calcolato
+                      </span>
+                      <span className="text-xs font-semibold text-slate-300">
+                        Δ {fmtIt(labResult.lDeltaPct, 2, true)}%
+                      </span>
+                    </div>
+                    <div className={`text-3xl md:text-4xl font-black tracking-tight my-2 ${
+                      labResult.lSurPct > 0.0001 ? 'text-red-400' : (labResult.lSurPct < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
+                    }`}>
+                      {fmtIt(labResult.lSurPct, 2, true)} %
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-slate-800 text-xs text-slate-300 space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-400">Confronto Prezzi:</span>
+                      <span className="font-semibold text-slate-200">
+                        {fmtIt(labBasePrice, 3)} € → {fmtIt(labEvalPrice, 3)} €
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 truncate">
+                      Fascia Matrice: da {fmtIt(labResult.pMin, 3)} a {fmtIt(labResult.pMax, 3)} €
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </section>
+
+        </div>
+
+        {/* 4. ARCHIVIO STORICO E CONSULTAZIONE MASE (2 TAB) */}
         <section className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          {/* Header Barra dei Tab */}
           <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto">
-            {[
-              { id: "chart", label: "Andamento Storico Prezzi", icon: BarChart3 },
-              { id: "surcharge", label: "Trend Fuel Surcharge (%)", icon: TrendingUp },
-              { id: "lookup", label: "Consultazione Libera Prezzi", icon: Search },
-              { id: "simulator", label: "Simulatore What-If", icon: Calculator },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-5 py-3.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all border-b-2 ${
-                    isActive
-                      ? 'border-sky-600 text-sky-700 bg-white shadow-xs'
-                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
+            <button
+              onClick={() => setArchiveTab("chart")}
+              className={`flex items-center gap-2 px-5 py-3.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all border-b-2 ${
+                archiveTab === "chart"
+                  ? 'border-sky-600 text-sky-700 bg-white shadow-xs'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              Andamento Storico Prezzi Gasolio
+            </button>
+            <button
+              onClick={() => setArchiveTab("lookup")}
+              className={`flex items-center gap-2 px-5 py-3.5 text-xs md:text-sm font-bold whitespace-nowrap transition-all border-b-2 ${
+                archiveTab === "lookup"
+                  ? 'border-sky-600 text-sky-700 bg-white shadow-xs'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/80'
+              }`}
+            >
+              <Search className="w-4 h-4" />
+              Consultazione Libera Prezzi
+            </button>
           </div>
 
-          {/* Contenuto Dinamico dei Tab */}
           <div className="p-5 md:p-6">
             
             {/* TAB 1: GRAFICO STORICO PREZZI PLOTLY */}
-            {activeTab === "chart" && (
+            {archiveTab === "chart" && (
               <div>
                 <h4 className="font-bold text-slate-800 text-sm md:text-base mb-1">
                   Evoluzione Prezzo Gasolio Auto Italia (Rilevazioni Settimanali MASE)
@@ -939,77 +1439,8 @@ export default function App() {
               </div>
             )}
 
-            {/* TAB 2: TREND SURCHARGE BI-CURVA PLOTLY */}
-            {activeTab === "surcharge" && (
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm md:text-base mb-1">
-                  Confronto Evoluzione Fuel Surcharge (Post {targetLabel})
-                </h4>
-                <p className="text-xs text-slate-500 mb-1.5">Confronto in percentuale tra Surcharge calcolato su base Pompa e su base Netto Industriale.</p>
-                <div className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200/70 rounded-lg px-3 py-1.5 mb-4 inline-flex items-center gap-1.5 font-medium">
-                  <Info className="w-3.5 h-3.5 shrink-0" />
-                  <span>Il grafico riflette dinamicamente la granularità (Mensile o Settimanale) e il Periodo Base (Target) impostati nei parametri generali in alto.</span>
-                </div>
-
-                {surchargeTrendData.length > 0 ? (
-                  <div className="w-full h-[400px]">
-                    <Plot
-                      data={[
-                        {
-                          x: surchargeTrendData.map((d) => d.label),
-                          y: surchargeTrendData.map((d) => d.surPompa),
-                          type: 'scatter',
-                          mode: 'lines+markers',
-                          name: 'Base Pompa',
-                          line: { color: '#2563eb', width: 2.2 },
-                          marker: { size: 5, color: '#1d4ed8' },
-                          hovertemplate: 'Base Pompa: %{y:.2f}%<extra></extra>'
-                        },
-                        {
-                          x: surchargeTrendData.map((d) => d.label),
-                          y: surchargeTrendData.map((d) => d.surNetto),
-                          type: 'scatter',
-                          mode: 'lines+markers',
-                          name: 'Base Netto Industriale',
-                          line: { color: '#f59e0b', width: 2.2, dash: 'dot' },
-                          marker: { size: 5, color: '#d97706' },
-                          hovertemplate: 'Base Netto: %{y:.2f}%<extra></extra>'
-                        }
-                      ]}
-                      layout={{
-                        autosize: true,
-                        margin: { l: 45, r: 15, t: 25, b: 50 },
-                        xaxis: { title: "Periodo Rilevato", tickangle: -45, automargin: true },
-                        yaxis: { title: "Percentuale Surcharge (%)" },
-                        legend: { orientation: 'h', y: 1.12, x: 0 },
-                        hovermode: 'x unified',
-                        shapes: [
-                          {
-                            type: 'line',
-                            x0: 0,
-                            x1: 1,
-                            xref: 'paper',
-                            y0: 0,
-                            y1: 0,
-                            line: { color: '#94a3b8', width: 1.5, dash: 'dash' }
-                          }
-                        ]
-                      }}
-                      useResizeHandler={true}
-                      style={{ width: '100%', height: '100%' }}
-                      config={{ displayModeBar: false, responsive: true }}
-                    />
-                  </div>
-                ) : (
-                  <div className="bg-sky-50 border border-sky-200 rounded-xl p-6 text-center text-sky-800 text-sm">
-                    Il Periodo Target selezionato ({targetLabel}) coincide con i dati più recenti disponibili. Seleziona un Periodo Base antecedente (es. Anno 2025) per osservare il trend nel tempo.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB 3: CONSULTAZIONE LIBERA PREZZI (A 5 VIE) */}
-            {activeTab === "lookup" && (
+            {/* TAB 2: CONSULTAZIONE LIBERA PREZZI (A 5 VIE) */}
+            {archiveTab === "lookup" && (
               <div className="space-y-4">
                 <h4 className="font-bold text-slate-800 text-sm md:text-base">
                   Consultazione Rapida Rilevazioni Ufficiali MASE (Gasolio Auto)
@@ -1154,81 +1585,6 @@ export default function App() {
                 ) : (
                   <div className="text-red-600 text-sm font-bold">Nessun dato trovato per la selezione.</div>
                 )}
-              </div>
-            )}
-
-            {/* TAB 4: SIMULATORE WHAT-IF */}
-            {activeTab === "simulator" && (
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-bold text-slate-800 text-sm md:text-base">
-                    Simulatore di Fuel Surcharge su Prezzo Ipotetico (What-If)
-                  </h4>
-                  <p className="text-xs text-slate-500">Calcola istantaneamente il Surcharge inserendo scenari manuali o parametri di gara.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-200 p-4 rounded-xl">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      Prezzo Target (€/L):
-                    </label>
-                    <input 
-                      type="number" 
-                      step="0.005"
-                      value={simBasePrice}
-                      onChange={(e) => setSimBasePrice(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      Prezzo Ipotetico / Stimato (€/L):
-                    </label>
-                    <input 
-                      type="number" 
-                      step="0.005"
-                      value={simEvalPrice}
-                      onChange={(e) => setSimEvalPrice(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                      Incidenza Gasolio (%):
-                    </label>
-                    <select
-                      value={simWeight}
-                      onChange={(e) => setSimWeight(Number(e.target.value))}
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-bold"
-                    >
-                      {Array.from({ length: 100 }, (_, i) => i + 1).map((n) => (
-                        <option key={`sim-w-${n}`} value={n}>{n}%</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Card Risultato Simulazione */}
-                <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-5 border border-slate-700 shadow-md">
-                  <div className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                    Risultato Simulazione What-If
-                  </div>
-                  <div className="flex flex-col md:flex-row md:items-baseline md:justify-between gap-3 my-2">
-                    <div className={`text-3xl md:text-4xl font-black ${
-                      simResult.sSurPct > 0.0001 ? 'text-red-400' : (simResult.sSurPct < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
-                    }`}>
-                      {fmtIt(simResult.sSurPct, 2, true)} %
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg">
-                        <b>Variazione Stimata:</b> {fmtIt(simResult.sDeltaPct, 2, true)}%
-                      </span>
-                      <span className="bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-lg">
-                        <b>Fascia Matrice:</b> da {fmtIt(simResult.pMin, 3)} € a {fmtIt(simResult.pMax, 3)} € (scaglione {fmtIt(simResult.sStep, 2, true)}%)
-                      </span>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 
