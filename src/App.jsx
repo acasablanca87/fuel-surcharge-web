@@ -10,7 +10,7 @@ const Plot = createPlotlyComponent(Plotly);
 import { 
   Sliders, TrendingUp, BarChart3, Search, 
   Calculator, BookOpen, ExternalLink, CheckCircle2,
-  RotateCcw
+  RotateCcw, Info
 } from 'lucide-react';
 
 const priceTypeOptions = {
@@ -273,7 +273,7 @@ export default function App() {
       weekPrice = lastW[activeKey] || 0;
       const meta = getWeekMeta(lastW.data);
       if (meta.isoWeek && meta.isoYear) {
-        weekTitle = `Sett. ${String(meta.isoWeek).padStart(2, "0")}/${String(meta.isoYear).slice(-2)}`;
+        weekTitle = `Settimana ${String(meta.isoWeek).padStart(2, "0")}/${String(meta.isoYear).slice(-2)}`;
       }
       const s = meta.obsStart;
       const e = meta.obsEnd;
@@ -688,10 +688,10 @@ export default function App() {
 
           <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
             <span>
-              <b>Prezzo Base di Partenza:</b> {fmtIt(targetPrice, 3)} €/L ({targetLabel})
+              <b>Base Attiva:</b> {priceTypeOptions[priceType]}
             </span>
             <span>
-              <b>Base Attiva:</b> {priceTypeOptions[priceType]}
+              <b>Prezzo Base di Partenza:</b> {fmtIt(targetPrice, 3)} €/L ({targetLabel})
             </span>
           </div>
         </section>
@@ -715,13 +715,14 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
               
               {/* 1. Ultimo Mese Consolidato */}
-              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
+              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md ring-1 ring-slate-800 flex flex-col justify-between">
                 <div>
                   <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
                     Ultimo Mese Consolidato
                   </div>
-                  <div className="text-sm font-semibold text-slate-200">
-                    {liveData.monthTitle}
+                  <div className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+                    <span>{liveData.monthTitle}</span>
+                    <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   </div>
                   <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
                     liveData.monthSurcharge > 0.0001 ? 'text-red-400' : (liveData.monthSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
@@ -732,80 +733,81 @@ export default function App() {
                 <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
                   <div className="flex justify-between">
                     <span>Prezzo Rilevato:</span>
-                    <b className="text-slate-200">{fmtIt(liveData.monthPrice, 3)} €/L</b>
+                    <b className="text-slate-400">{fmtIt(liveData.monthPrice, 3)} €/L</b>
                   </div>
                   <div className="flex justify-between">
                     <span>Variazione Prezzo (Δ):</span>
-                    <b className="text-slate-200">{fmtIt(liveData.monthDelta, 2, true)}%</b>
+                    <b className="text-slate-400">{fmtIt(liveData.monthDelta, 2, true)}%</b>
                   </div>
-                  <div className="text-[11px] text-slate-400 pt-1">
-                    Convenzionalmente valido per la fatturazione del mese successivo.
+                  <div className="text-[11px] text-slate-400 pt-1 flex items-start gap-1.5 min-h-[2rem]">
+                    <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                    <span>Convenzionalmente valido per la fatturazione del mese successivo.</span>
                   </div>
                 </div>
               </div>
 
               {/* 2. Ultima Settimana Consolidata */}
-              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
+              <div className="bg-[#222e49]/80 text-white/90 rounded-2xl p-5 border border-[#31436b]/70 shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
+                  <div className="text-xs font-bold tracking-wider text-slate-300/85 uppercase mb-1.5">
                     Ultima Settimana Consolidata
                   </div>
-                  <div className="text-sm font-semibold text-slate-200">
-                    {liveData.weekTitle} {liveData.weekSub && <span className="text-xs text-slate-400">({liveData.weekSub})</span>}
+                  <div className="text-sm font-semibold text-slate-300/85">
+                    {liveData.weekTitle} {liveData.weekSub && <span className="text-xs text-slate-300/85 font-normal">({liveData.weekSub})</span>}
                   </div>
                   <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
-                    liveData.weekSurcharge > 0.0001 ? 'text-red-400' : (liveData.weekSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
+                    liveData.weekSurcharge > 0.0001 ? 'text-red-400' : (liveData.weekSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-200/90')
                   }`}>
                     {fmtIt(liveData.weekSurcharge, 2, true)} %
                   </div>
                 </div>
-                <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
+                <div className="pt-3 border-t border-[#31436b]/50 text-xs text-slate-300/85 space-y-1">
                   <div className="flex justify-between">
                     <span>Prezzo Rilevato:</span>
-                    <b className="text-slate-200">{fmtIt(liveData.weekPrice, 3)} €/L</b>
+                    <b className="text-slate-300/85">{fmtIt(liveData.weekPrice, 3)} €/L</b>
                   </div>
                   <div className="flex justify-between">
                     <span>Variazione Prezzo (Δ):</span>
-                    <b className="text-slate-200">{fmtIt(liveData.weekDelta, 2, true)}%</b>
+                    <b className="text-slate-300/85">{fmtIt(liveData.weekDelta, 2, true)}%</b>
                   </div>
+                  <div className="min-h-[2rem] pt-1" aria-hidden="true"></div>
                 </div>
               </div>
 
               {/* 3. Mese in Corso (Stima Provvisoria) */}
-              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-sm flex flex-col justify-between">
+              <div className="bg-slate-100/90 text-slate-900 rounded-2xl p-5 border border-slate-300 shadow-xs flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
-                    Mese in Corso (Stima Provvisoria)
+                  <div className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-1.5">
+                    Mese in Corso Stima Provvisoria
                   </div>
-                  <div className="text-sm font-semibold text-slate-200">
-                    {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} ril.)` : "Nessun dato provvisorio"}
+                  <div className="text-sm font-semibold text-slate-500">
+                    {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} rilevazioni)` : "Nessun dato provvisorio"}
                   </div>
                   {liveData.hasProvisional ? (
-                    <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
-                      liveData.provSurcharge > 0.0001 ? 'text-red-400' : (liveData.provSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
-                    }`}>
+                    <div className="text-3xl md:text-4xl font-black tracking-tight my-2.5 text-slate-500">
                       {fmtIt(liveData.provSurcharge, 2, true)} %
                     </div>
                   ) : (
-                    <div className="text-2xl font-bold text-slate-500 my-4">
+                    <div className="text-2xl font-bold text-slate-400 my-4">
                       —
                     </div>
                   )}
                 </div>
-                <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
+                <div className="pt-3 border-t border-slate-200 text-xs text-slate-500 space-y-1">
                   {liveData.hasProvisional ? (
                     <>
                       <div className="flex justify-between">
                         <span>Media Parziale:</span>
-                        <b className="text-slate-200">{fmtIt(liveData.provPrice, 3)} €/L</b>
+                        <b className="text-slate-500">{fmtIt(liveData.provPrice, 3)} €/L</b>
                       </div>
                       <div className="flex justify-between">
                         <span>Variazione Prezzo (Δ):</span>
-                        <b className="text-slate-200">{fmtIt(liveData.provDelta, 2, true)}%</b>
+                        <b className="text-slate-500">{fmtIt(liveData.provDelta, 2, true)}%</b>
                       </div>
+                      <div className="min-h-[2rem] pt-1" aria-hidden="true"></div>
                     </>
                   ) : (
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-[11px] text-slate-400 min-h-[2rem] pt-1 flex items-center">
                       Tutte le settimane del mese sono già state consolidate.
                     </div>
                   )}
@@ -844,17 +846,17 @@ export default function App() {
                   </tr>
                   <tr className="bg-slate-50 text-slate-600 text-[11px] font-semibold border-b border-slate-200">
                     <th className="py-1 px-3 text-center border-r border-slate-200/60 w-1/5 bg-slate-50">
-                      <div>Ultimo Mese Consolidato</div>
-                      <div className="text-[10px] text-slate-400 font-normal">{liveData.monthTitle}</div>
+                      <div>ULTIMO MESE CONSOLIDATO</div>
+                      <div className="text-[11px] font-semibold text-slate-600">{liveData.monthTitle}</div>
                     </th>
                     <th className="py-1 px-3 text-center border-r border-slate-200/60 w-1/5 bg-slate-50">
-                      <div>Ultima Settimana Consolidata</div>
-                      <div className="text-[10px] text-slate-400 font-normal">{liveData.weekTitle}</div>
+                      <div>ULTIMA SETTIMANA CONSOLIDATA</div>
+                      <div className="text-[11px] font-semibold text-slate-600">{liveData.weekTitle}</div>
                     </th>
                     <th className="py-1 px-3 text-center w-1/5 bg-slate-50">
-                      <div>Mese in Corso (Stima Provvisoria)</div>
-                      <div className="text-[10px] text-slate-400 font-normal">
-                        {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} ril.)` : "—"}
+                      <div>MESE IN CORSO<br />STIMA PROVVISORIA</div>
+                      <div className="text-[11px] font-semibold text-slate-600">
+                        {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} rilevazioni)` : "—"}
                       </div>
                     </th>
                   </tr>
@@ -1000,7 +1002,7 @@ export default function App() {
               <div>
                 <h4 className="font-bold text-slate-900 text-base md:text-lg flex items-center gap-2">
                   <Calculator className="w-5 h-5 text-sky-600" />
-                  Laboratorio di Calcolo & Simulatore Completo
+                  SIMULATORE
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Confronta liberamente qualsiasi periodo storico MASE o simula scenari ipotetici con valori personalizzati.
@@ -1013,7 +1015,7 @@ export default function App() {
                 title="Copia i parametri del contratto principale impostati in cima alla pagina"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-sky-600" />
-                Copia parametri contratto
+                Copia parametri da sopra
               </button>
             </div>
 
@@ -1284,33 +1286,14 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Card Risultato Surcharge ad alto contrasto */}
-                <div className="bg-slate-900 text-white rounded-2xl p-4.5 border border-slate-800 shadow-sm flex flex-col justify-between flex-1">
+                {/* Card Risultato Surcharge uniformata */}
+                <div className="bg-slate-100/90 text-slate-900 rounded-2xl p-4.5 border border-slate-300 shadow-xs flex flex-col justify-center flex-1">
                   <div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Fuel Surcharge Calcolato
-                      </span>
-                      <span className="text-xs font-semibold text-slate-300">
-                        Δ {fmtIt(labResult.lDeltaPct, 2, true)}%
-                      </span>
+                    <div className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-1">
+                      Fuel Surcharge
                     </div>
-                    <div className={`text-3xl md:text-4xl font-black tracking-tight my-2 ${
-                      labResult.lSurPct > 0.0001 ? 'text-red-400' : (labResult.lSurPct < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
-                    }`}>
+                    <div className="text-3xl md:text-4xl font-black tracking-tight text-slate-500 my-1">
                       {fmtIt(labResult.lSurPct, 2, true)} %
-                    </div>
-                  </div>
-
-                  <div className="pt-2.5 border-t border-slate-800 text-xs text-slate-300 space-y-1">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-400">Confronto Prezzi:</span>
-                      <span className="font-semibold text-slate-200">
-                        {fmtIt(labBasePrice, 3)} € → {fmtIt(labEvalPrice, 3)} €
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-400 truncate">
-                      Fascia Matrice: da {fmtIt(labResult.pMin, 3)} a {fmtIt(labResult.pMax, 3)} €
                     </div>
                   </div>
                 </div>

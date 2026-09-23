@@ -121,5 +121,20 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
     - Risolto il crash all'avvio che causava un flash iniziale seguito da pagina completamente bianca (`ReferenceError: setSimBasePrice is not defined`).
     - Causa radice: nel precedente refactoring del Laboratorio di Calcolo erano rimasti due `useEffect` orfani in `src/App.jsx` che tentavano di invocare `setSimBasePrice` e `setSimWeight` (variabili di stato del vecchio simulatore eliminato).
     - Rimossi chirurgicamente gli hook orfani; confermato che il Laboratorio di Calcolo gestisce autonomamente lo stato con `syncWithContract`.
-    - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0).
-
+  - **Fine-Tuning Hero Cards, Matrice e Laboratorio di Calcolo (23 Settembre 2026):**
+    - **Hero Cards Quadro Fuel Surcharge:**
+      - 1° Box (*Ultimo Mese Consolidato*): inserita doppia icona informativa sobria (`Info` di Lucide, vettoriale e non emoji) sia accanto al titolo del mese sia prima della nota esplicativa contrattuale.
+      - 2° Box (*Ultima Settimana Consolidata*): impostata la tonalità navy/ardesia personalizzata `#222e49` all'80% (`bg-[#222e49]/80`) con bordo coordinato (`border-[#31436b]/70`), creando un ponte cromatico ideale tra il nero profondo del 1° box e il grigio chiaro del 3° box.
+      - 3° Box (*Mese in Corso - Stima Provvisoria*): schiarita ulteriormente la percentuale a `text-slate-500` per massimizzare la percezione di dato secondario/stima di lavoro.
+      - **Allineamento Verticale Millimetrico:** uniformata l'altezza dei footer con uno spacer dedicato `min-h-[2rem]` su tutti e 3 i box, rendendo la riga divisoria, *"Prezzo Rilevato:"* e *"Variazione Prezzo (Δ):"* perfettamente allineati alla stessa quota orizzontale.
+    - **Matrice a Scaglioni:**
+      - Uniformata la dimensione e il peso dei riferimenti temporali (`liveData.monthTitle`, `liveData.weekTitle`, `liveData.provTitle`) alla stessa scala dell'intestazione colonna (`text-[11px] font-semibold`), differenziandoli con un colore blu scuro istituzionale ad alta leggibilità (`text-blue-900`).
+    - **Laboratorio di Calcolo & Simulatore:**
+      - Uniformato il box del risultato allo stile chiaro del box *Mese in Corso* (`bg-slate-100/90 text-slate-900 border-slate-300 shadow-xs`).
+      - Semplificato il contenuto: rinominato in *"Fuel Surcharge"* e rimossi tutti i testi secondari (delta e confronto prezzi), lasciando in risalto la sola percentuale di calcolo.
+    - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0 in 2.15s).
+  - **Fine-Tuning Cromatico Box Mese in Corso (23 Settembre 2026):**
+    - Nel terzo box a destra del cruscotto ("Mese in Corso (Stima Provvisoria)"):
+      - Uniformato il colore del sottotitolo temporale (es. "Settembre 2026 (3 rilevazioni)") alla tonalità `text-slate-500` del titolo della card ("Mese in Corso (Stima Provvisoria)").
+      - Uniformati i valori numerici del footer ("Media Parziale:" e "Variazione Prezzo (Δ):") a `text-slate-500`, allineandoli cromaticamente alle rispettive etichette per una resa visiva più morbida, armoniosa e secondaria rispetto ai due box consolidati.
+    - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0 in 2.19s).
