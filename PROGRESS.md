@@ -138,3 +138,11 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
       - Uniformato il colore del sottotitolo temporale (es. "Settembre 2026 (3 rilevazioni)") alla tonalità `text-slate-500` del titolo della card ("Mese in Corso (Stima Provvisoria)").
       - Uniformati i valori numerici del footer ("Media Parziale:" e "Variazione Prezzo (Δ):") a `text-slate-500`, allineandoli cromaticamente alle rispettive etichette per una resa visiva più morbida, armoniosa e secondaria rispetto ai due box consolidati.
     - Collaudato con esito positivo: `npm run lint` (0 errori) e `npm run build` (exit code 0 in 2.19s).
+  - **Matrice a Scaglioni: Vista Compatta Espandibile con Deep Link:**
+    - Esteso il range della matrice a 41 righe (0,00% → 20,00%, passi da 0,50%) tramite `upperBound = Math.max(20.0, Math.ceil((maxSur + 0.75) * 2) / 2)`: quota fissa al 20% che si estende automaticamente solo se un riferimento cade oltre, evitando righe orfane.
+    - Introdotta la finestra di default `matrixWindow`: righe dei tre riferimenti rilevati (`matchMonth` / `matchWeek` / `matchProv`) ± 2 scaglioni per lato, con clamp agli estremi. Se i riferimenti sono distanti la finestra copre naturalmente l'intero range; le righe con la freccia `←` restano sempre visibili.
+    - Aggiunto un unico pulsante di collapse/espansione nell'header della sezione (*"Mostra tutti gli scaglioni (41)"* / *"Mostra solo i riferimenti (N)"*) con `aria-expanded` e `aria-controls`.
+    - Righe fuori finestra nascoste via CSS (`hidden print:table-row`) e non rimosse dal DOM: la stampa/PDF esporta sempre la tabella completa, senza race con `window.print()`.
+    - Separatori informativi non stampabili (`⋯ N scaglioni nascosti ⋯` con `print:hidden`) sopra e sotto la finestra visibile.
+    - Deep link dello stato espanso: parametro `?matrice=full` letto all'avvio e sincronizzato in `history.replaceState` insieme a `price_type` e `weight`, così il link condiviso apre la matrice già estesa.
+    - Collaudato con `npm run lint` (0 errori, resta 1 warning preesistente su `setState` in `useEffect`). `npm run build` non eseguibile in questa sessione: bloccato dal sandbox locale (binario nativo `@tailwindcss/oxide` + `spawn EPERM` durante il load di `vite.config.js`), verifica rimandata a un nodo senza restrizioni.

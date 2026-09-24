@@ -10,7 +10,7 @@ const Plot = createPlotlyComponent(Plotly);
 import { 
   Sliders, TrendingUp, BarChart3, Search, 
   Calculator, BookOpen, ExternalLink, CheckCircle2,
-  RotateCcw, Info
+  RotateCcw, Info, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 const priceTypeOptions = {
@@ -23,6 +23,14 @@ const priceKeys = {
   pompa: "prezzo_pompa",
   imponibile: "imponibile",
   netto: "netto"
+};
+
+// Interpreta un importo digitato in formato italiano ("2,100" / "2.100" / "2.1") -> numero
+const parseItAmount = (raw) => {
+  const cleaned = String(raw).replace(/\s/g, "");
+  const normalized = cleaned.includes(",") ? cleaned.replace(/\./g, "").replace(",", ".") : cleaned;
+  const n = parseFloat(normalized);
+  return isNaN(n) ? null : n;
 };
 
 export default function App() {
@@ -94,6 +102,11 @@ export default function App() {
   // Tab attivo nella sezione archivio MASE (in fondo)
   const [archiveTab, setArchiveTab] = useState("chart");
 
+  // Matrice a scaglioni: vista estesa a tutte le righe (condivisibile via URL ?matrice=full)
+  const [matrixExpanded, setMatrixExpanded] = useState(() => {
+    return new URLSearchParams(window.location.search).get("matrice") === "full";
+  });
+
   // --- STATO QUICK LOOKUP ---
   const [lookupMode, setLookupMode] = useState("Intervallo Date");
   const [lkStartDate, setLkStartDate] = useState(() => defaultMonthStartISO);
@@ -130,14 +143,23 @@ export default function App() {
   const [labEvalWeekIdx, setLabEvalWeekIdx] = useState(0); // 0 = ultima settimana
   const [labCustomEvalPrice, setLabCustomEvalPrice] = useState(1.628);
 
+  // Buffer di digitazione dei due campi prezzo (per mostrare 3 decimali a riposo, "2,100")
+  const [labBaseDraft, setLabBaseDraft] = useState(null);
+  const [labEvalDraft, setLabEvalDraft] = useState(null);
+
   // Sincronizzazione parametri URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     params.set("price_type", priceType);
     params.set("weight", fuelWeight.toString());
+    if (matrixExpanded) {
+      params.set("matrice", "full");
+    } else {
+      params.delete("matrice");
+    }
     const newUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', newUrl);
-  }, [priceType, fuelWeight]);
+  }, [priceType, fuelWeight, matrixExpanded]);
 
   const activeKey = priceKeys[priceType];
 
@@ -315,7 +337,8 @@ export default function App() {
 
     const maxSur = Math.max(...surcharges, 4.0);
     const lowerBound = 0.0;
-    const upperBound = Math.max(5.0, Math.ceil((maxSur + 0.75) * 2) / 2);
+    // Base 41 righe (0,00% -> 20,00%): si estende solo se un riferimento cade oltre il 20%
+    const upperBound = Math.max(20.0, Math.ceil((maxSur + 0.75) * 2) / 2);
 
     const steps = [];
     for (let s = lowerBound; s <= upperBound + 0.001; s = Number((s + 0.5).toFixed(2))) {
@@ -339,6 +362,23 @@ export default function App() {
       };
     });
   }, [liveData, targetPrice, fuelWeight]);
+
+  // --- FINESTRA DI DEFAULT MATRICE: RIGHE DEI RIFERIMENTI ± 2 SCAGLIONI ---
+  const matrixWindow = useMemo(() => {
+    const anchorIdxs = [];
+    bracketRows.forEach((row, idx) => {
+      if (row.matchMonth || row.matchWeek || row.matchProv) anchorIdxs.push(idx);
+    });
+    if (anchorIdxs.length === 0) return { start: 0, end: bracketRows.length - 1 };
+    return {
+      start: Math.max(0, Math.min(...anchorIdxs) - 2),
+      end: Math.min(bracketRows.length - 1, Math.max(...anchorIdxs) + 2)
+    };
+  }, [bracketRows]);
+
+  // Conteggio righe fuori finestra e visibilità effettiva (tutte se espanso o se non c'è nulla da nascondere)
+  const matrixHiddenCount = bracketRows.length - (matrixWindow.end - matrixWindow.start + 1);
+  const matrixShowAll = matrixExpanded || matrixHiddenCount === 0;
 
   // --- DATI PER GRAFICO TREND SURCHARGE (Post Periodo Target) ---
   const surchargeTrendData = useMemo(() => {
@@ -718,7 +758,7 @@ export default function App() {
               <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md ring-1 ring-slate-800 flex flex-col justify-between">
                 <div>
                   <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
-                    Ultimo Mese Consolidato
+                    MENSILE CONSOLIDATO
                   </div>
                   <div className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
                     <span>{liveData.monthTitle}</span>
@@ -739,7 +779,7 @@ export default function App() {
                     <span>Variazione Prezzo (Δ):</span>
                     <b className="text-slate-400">{fmtIt(liveData.monthDelta, 2, true)}%</b>
                   </div>
-                  <div className="text-[11px] text-slate-400 pt-1 flex items-start gap-1.5 min-h-[2rem]">
+                  <div className="text-[11px] text-slate-200 pt-1 flex items-start gap-1.5 min-h-[2rem]">
                     <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                     <span>Convenzionalmente valido per la fatturazione del mese successivo.</span>
                   </div>
@@ -750,7 +790,7 @@ export default function App() {
               <div className="bg-[#222e49]/80 text-white/90 rounded-2xl p-5 border border-[#31436b]/70 shadow-sm flex flex-col justify-between">
                 <div>
                   <div className="text-xs font-bold tracking-wider text-slate-300/85 uppercase mb-1.5">
-                    Ultima Settimana Consolidata
+                    SETTIMANALE
                   </div>
                   <div className="text-sm font-semibold text-slate-300/85">
                     {liveData.weekTitle} {liveData.weekSub && <span className="text-xs text-slate-300/85 font-normal">({liveData.weekSub})</span>}
@@ -778,7 +818,7 @@ export default function App() {
               <div className="bg-slate-100/90 text-slate-900 rounded-2xl p-5 border border-slate-300 shadow-xs flex flex-col justify-between">
                 <div>
                   <div className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-1.5">
-                    Mese in Corso Stima Provvisoria
+                    MENSILE PROVVISORIO
                   </div>
                   <div className="text-sm font-semibold text-slate-500">
                     {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} rilevazioni)` : "Nessun dato provvisorio"}
@@ -828,16 +868,32 @@ export default function App() {
                   Forchette di prezzo (passi da ±0,50%) calcolate a partire dalla base neutra 0,00% ({fmtIt(targetPrice, 3)} €/L).
                 </p>
               </div>
+              {matrixHiddenCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMatrixExpanded((v) => !v)}
+                  aria-expanded={matrixShowAll}
+                  aria-controls="matrice-scaglioni-body"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                >
+                  {matrixShowAll
+                    ? <ChevronUp className="w-3.5 h-3.5 text-sky-600" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-sky-600" />}
+                  {matrixShowAll
+                    ? `Mostra solo i riferimenti (${matrixWindow.end - matrixWindow.start + 1})`
+                    : "Espandi Matrice"}
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs md:text-sm border-collapse min-w-[650px]">
                 <thead className="sticky top-14 z-10 shadow-xs">
                   <tr className="bg-slate-100 text-slate-700 text-xs uppercase tracking-wider border-b border-slate-200">
-                    <th rowSpan="2" className="py-1.5 px-3 font-bold border-r border-slate-200/80 bg-slate-100">
+                    <th rowSpan="2" className="py-1.5 px-3 font-bold align-top border-r border-slate-200/80 bg-slate-100">
                       Forchetta Prezzo Gasolio
                     </th>
-                    <th rowSpan="2" className="py-1.5 px-3 font-bold text-center border-r border-slate-200/80 bg-slate-100">
+                    <th rowSpan="2" className="py-1.5 px-3 font-bold text-center align-top border-r border-slate-200/80 bg-slate-100">
                       Fuel Surcharge
                     </th>
                     <th colSpan="3" className="py-1.5 px-3 font-bold text-center border-b border-slate-200 bg-slate-100">
@@ -845,27 +901,29 @@ export default function App() {
                     </th>
                   </tr>
                   <tr className="bg-slate-50 text-slate-600 text-[11px] font-semibold border-b border-slate-200">
-                    <th className="py-1 px-3 text-center border-r border-slate-200/60 w-1/5 bg-slate-50">
-                      <div>ULTIMO MESE CONSOLIDATO</div>
+                    <th className="py-1 px-3 text-center align-top border-r border-slate-200/60 w-1/5 bg-slate-50">
+                      <div>MENSILE CONSOLIDATO</div>
                       <div className="text-[11px] font-semibold text-slate-600">{liveData.monthTitle}</div>
                     </th>
-                    <th className="py-1 px-3 text-center border-r border-slate-200/60 w-1/5 bg-slate-50">
-                      <div>ULTIMA SETTIMANA CONSOLIDATA</div>
+                    <th className="py-1 px-3 text-center align-top border-r border-slate-200/60 w-1/5 bg-slate-50">
+                      <div>SETTIMANALE</div>
                       <div className="text-[11px] font-semibold text-slate-600">{liveData.weekTitle}</div>
                     </th>
-                    <th className="py-1 px-3 text-center w-1/5 bg-slate-50">
-                      <div>MESE IN CORSO<br />STIMA PROVVISORIA</div>
+                    <th className="py-1 px-3 text-center align-top w-1/5 bg-slate-50">
+                      <div>MENSILE PROVVISORIO</div>
                       <div className="text-[11px] font-semibold text-slate-600">
                         {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} rilevazioni)` : "—"}
                       </div>
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
-                  {bracketRows.map((row, idx) => (
+                <tbody id="matrice-scaglioni-body" className="divide-y divide-slate-100 bg-white">
+                  {bracketRows.map((row, idx) => {
+                    const isHidden = !matrixShowAll && (idx < matrixWindow.start || idx > matrixWindow.end);
+                    return (
                     <tr 
                       key={idx} 
-                      className="transition-colors hover:bg-slate-50/80"
+                      className={`transition-colors hover:bg-slate-50/80${isHidden ? " hidden print:table-row" : ""}`}
                     >
                       <td className="py-1.5 px-3 border-r border-slate-100 text-slate-800">
                         da {fmtIt(row.pMin, 3)} € a {fmtIt(row.pMax, 3)} €
@@ -897,7 +955,8 @@ export default function App() {
                         ) : null}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1129,14 +1188,20 @@ export default function App() {
                     Prezzo Base Effettivo (€/L):
                   </label>
                   <input 
-                    type="number" 
-                    step="0.005"
-                    value={labTargetMode === "Valore Libero" ? labCustomBasePrice : labBasePrice}
+                    type="text" 
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={labBaseDraft ?? fmtIt(labTargetMode === "Valore Libero" ? labCustomBasePrice : labBasePrice, 3)}
                     onChange={(e) => {
-                      const val = parseFloat(e.target.value) || 0;
-                      setLabCustomBasePrice(val);
-                      setLabTargetMode("Valore Libero");
+                      const raw = e.target.value;
+                      setLabBaseDraft(raw);
+                      const val = parseItAmount(raw);
+                      if (val !== null) {
+                        setLabCustomBasePrice(val);
+                        setLabTargetMode("Valore Libero");
+                      }
                     }}
+                    onBlur={() => setLabBaseDraft(null)}
                     className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-3.5 text-sm font-black text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                   />
                   <div className="mt-1 text-[11px] text-slate-500 truncate">
@@ -1230,14 +1295,20 @@ export default function App() {
                     Prezzo Rilevato Effettivo (€/L):
                   </label>
                   <input 
-                    type="number" 
-                    step="0.005"
-                    value={labEvalMode === "Valore Libero" ? labCustomEvalPrice : labEvalPrice}
+                    type="text" 
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={labEvalDraft ?? fmtIt(labEvalMode === "Valore Libero" ? labCustomEvalPrice : labEvalPrice, 3)}
                     onChange={(e) => {
-                      const val = parseFloat(e.target.value) || 0;
-                      setLabCustomEvalPrice(val);
-                      setLabEvalMode("Valore Libero");
+                      const raw = e.target.value;
+                      setLabEvalDraft(raw);
+                      const val = parseItAmount(raw);
+                      if (val !== null) {
+                        setLabCustomEvalPrice(val);
+                        setLabEvalMode("Valore Libero");
+                      }
                     }}
+                    onBlur={() => setLabEvalDraft(null)}
                     className="w-full h-[42px] bg-white border border-slate-300 rounded-xl px-3.5 text-sm font-black text-slate-900 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                   />
                   <div className="mt-1 text-[11px] text-slate-500 truncate">
