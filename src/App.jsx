@@ -388,7 +388,7 @@ export default function App() {
           const dNettoPct = ((row.netto - targetPriceNetto) / targetPriceNetto) * 100;
           const surNetto = dNettoPct * (fuelWeight / 100.0);
           points.push({
-            label: `Sett. ${String(meta.isoWeek).padStart(2, '0')}/${meta.isoYear}`,
+            label: `week ${String(meta.isoWeek).padStart(2, '0')}/${String(meta.isoYear).slice(-2)}`,
             surPompa,
             surNetto
           });
@@ -1020,7 +1020,7 @@ export default function App() {
                       autosize: true,
                       margin: { l: 45, r: 15, t: 25, b: 50 },
                       xaxis: { title: "Periodo Rilevato", tickangle: -45, automargin: true },
-                      yaxis: { title: "Percentuale Surcharge (%)" },
+                      yaxis: { title: "Percentuale Surcharge (%)", ticksuffix: '%' },
                       legend: { orientation: 'h', y: 1.12, x: 0 },
                       hovermode: 'x unified',
                       shapes: [
