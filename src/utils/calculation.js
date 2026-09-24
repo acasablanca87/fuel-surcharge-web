@@ -61,7 +61,9 @@ export function getWeekMeta(dateStr) {
     tempDt.setMonth(0, 1 + ((4 - tempDt.getDay() + 7) % 7));
   }
   const isoWeek = 1 + Math.ceil((firstThursday - tempDt) / 604800000);
-  const isoYear = obsStartDt.getFullYear();
+  // ISO week-year = anno di calendario del giovedì della settimana (ISO 8601), non del lunedì:
+  // per le settimane 1 che iniziano a dicembre il lunedì cade nell'anno precedente (es. lun 29/12/2025 → settimana 01/2026).
+  const isoYear = new Date(firstThursday).getFullYear();
 
   const startStr = obsStartDt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
   const endStr = obsEndDt.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
