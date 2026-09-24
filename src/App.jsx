@@ -10,7 +10,7 @@ const Plot = createPlotlyComponent(Plotly);
 import { 
   Sliders, TrendingUp, BarChart3, Search, 
   Calculator, BookOpen, ExternalLink, CheckCircle2,
-  RotateCcw, Info, ChevronDown, ChevronUp
+  RotateCcw, Info, ChevronDown, ChevronUp, Hourglass
 } from 'lucide-react';
 
 const priceTypeOptions = {
@@ -276,7 +276,7 @@ export default function App() {
       weekPrice = lastW[activeKey] || 0;
       const meta = getWeekMeta(lastW.data);
       if (meta.isoWeek && meta.isoYear) {
-        weekTitle = `Settimana ${String(meta.isoWeek).padStart(2, "0")}/${String(meta.isoYear).slice(-2)}`;
+        weekTitle = `week ${String(meta.isoWeek).padStart(2, "0")}/${String(meta.isoYear).slice(-2)}`;
       }
       const s = meta.obsStart;
       const e = meta.obsEnd;
@@ -782,7 +782,7 @@ export default function App() {
                     SETTIMANALE
                   </div>
                   <div className="text-sm font-semibold text-slate-900">
-                    {liveData.weekTitle.replace("Settimana", "week")} {liveData.weekSub && <span className="text-xs font-normal">({liveData.weekSub})</span>}
+                    {liveData.weekTitle} {liveData.weekSub && `(${liveData.weekSub})`}
                   </div>
                   <div className="text-3xl md:text-4xl font-black tracking-tight my-2.5 text-slate-900">
                     {fmtIt(liveData.weekSurcharge, 2, true)} %
@@ -808,7 +808,9 @@ export default function App() {
                     MENSILE PROVVISORIO
                   </div>
                   <div className="text-sm font-semibold text-slate-900">
-                    {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} rilevazioni)` : "Nessun dato provvisorio"}
+                    {liveData.hasProvisional ? (
+                      <><span className="whitespace-nowrap">{liveData.provTitle} <Hourglass className="inline-block w-3.5 h-3.5 text-slate-400 align-[-2px]" /></span> ({liveData.provCount} rilevazioni)</>
+                    ) : "Nessun dato provvisorio"}
                   </div>
                   {liveData.hasProvisional ? (
                     <div className="text-3xl md:text-4xl font-black tracking-tight my-2.5 text-slate-900">
@@ -867,7 +869,7 @@ export default function App() {
                     ? <ChevronUp className="w-3.5 h-3.5 text-slate-700" />
                     : <ChevronDown className="w-3.5 h-3.5 text-slate-700" />}
                   {matrixShowAll
-                    ? `Mostra solo i riferimenti (${matrixWindow.end - matrixWindow.start + 1})`
+                    ? "Comprimi Matrice"
                     : "Espandi Matrice"}
                 </button>
               )}
@@ -875,7 +877,7 @@ export default function App() {
 
             <div className="overflow-x-auto md:overflow-x-visible rounded-xl border border-slate-200">
               <table className="w-full text-left text-xs md:text-sm border-collapse min-w-[650px]">
-                <thead className="sticky top-14 z-10 shadow-xs">
+                <thead className="shadow-xs">
                   <tr className="bg-slate-100 text-slate-700 text-xs uppercase tracking-wider border-b border-slate-200">
                     <th rowSpan="2" className="py-1.5 px-3 font-bold align-top border-r border-slate-200/80 bg-slate-100">
                       Forchetta Prezzo Gasolio
@@ -899,7 +901,11 @@ export default function App() {
                     <th className="py-1 px-3 text-center align-top w-1/5 bg-slate-50">
                       <div>MENSILE PROVVISORIO</div>
                       <div className="text-[11px] font-semibold text-slate-600">
-                        {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} rilevazioni)` : "—"}
+                        {liveData.hasProvisional ? (
+                          <><span className="whitespace-nowrap">{liveData.provTitle} <Hourglass className="inline-block w-3 h-3 text-slate-400 align-[-2px]" /></span> <span className="whitespace-nowrap">({liveData.provCount} rilevazioni)</span></>
+                        ) : (
+                          "—"
+                        )}
                       </div>
                     </th>
                   </tr>
