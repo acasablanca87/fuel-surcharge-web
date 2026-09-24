@@ -587,7 +587,7 @@ export default function App() {
       <header className="bg-white border-b border-slate-200/90 shadow-xs sticky top-0 z-50 font-titillium">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-row items-center justify-between gap-4">
           <div className="flex flex-col justify-center">
-            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#0F2D59] leading-tight">
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
               FUEL SURCHARGE ITALIA
             </h1>
             <div className="flex items-center gap-1.5 mt-0.5">
@@ -680,7 +680,7 @@ export default function App() {
                   <select
                     value={selYear}
                     onChange={(e) => setSelYear(e.target.value)}
-                    className="w-full h-[42px] bg-sky-50/90 border border-sky-300 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
+                    className="w-full h-[42px] bg-sky-50/60 border border-sky-200 rounded-xl px-3.5 font-bold text-sky-950 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm shadow-xs transition-colors"
                   >
                     {Object.keys(annualDict).sort((a,b) => b - a).map((y) => (
                       <option key={y} value={y}>Media Anno {y} ({fmtIt(annualDict[y]?.[activeKey] || 0)} €/L)</option>
@@ -723,15 +723,6 @@ export default function App() {
               </div>
             </div>
           </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
-            <span>
-              <b>Base Attiva:</b> {priceTypeOptions[priceType]}
-            </span>
-            <span>
-              <b>Prezzo Base di Partenza:</b> {fmtIt(targetPrice, 3)} €/L ({targetLabel})
-            </span>
-          </div>
         </section>
 
         {/* 2. LA STANZA OPERATIVA DEL FUEL SURCHARGE */}
@@ -753,31 +744,31 @@ export default function App() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
               
               {/* 1. Ultimo Mese Consolidato */}
-              <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-md ring-1 ring-slate-800 flex flex-col justify-between">
+              <div className="bg-sky-50/60 text-slate-900 rounded-2xl p-5 border border-sky-200 shadow-xs h-full flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1.5">
+                  <div className="text-xs font-bold tracking-wider text-slate-700 uppercase mb-1.5">
                     MENSILE CONSOLIDATO
                   </div>
-                  <div className="text-sm font-semibold text-slate-200 flex items-center gap-1.5">
+                  <div className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
                     <span>{liveData.monthTitle}</span>
-                    <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <Info className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                   </div>
                   <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
-                    liveData.monthSurcharge > 0.0001 ? 'text-red-400' : (liveData.monthSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-100')
+                    liveData.monthSurcharge > 0.0001 ? 'text-red-700' : 'text-slate-900'
                   }`}>
                     {fmtIt(liveData.monthSurcharge, 2, true)} %
                   </div>
                 </div>
-                <div className="pt-3 border-t border-slate-800 text-xs text-slate-400 space-y-1">
+                <div className="pt-3 border-t border-sky-200 text-xs text-slate-600 space-y-1">
                   <div className="flex justify-between">
                     <span>Prezzo Rilevato:</span>
-                    <b className="text-slate-400">{fmtIt(liveData.monthPrice, 3)} €/L</b>
+                    <b className="text-slate-600 font-semibold">{fmtIt(liveData.monthPrice, 3)} €/L</b>
                   </div>
                   <div className="flex justify-between">
                     <span>Variazione Prezzo (Δ):</span>
-                    <b className="text-slate-400">{fmtIt(liveData.monthDelta, 2, true)}%</b>
+                    <b className="text-slate-600 font-semibold">{fmtIt(liveData.monthDelta, 2, true)}%</b>
                   </div>
-                  <div className="text-[11px] text-slate-200 pt-1 flex items-start gap-1.5 min-h-[2rem]">
+                  <div className="text-xs text-slate-900 pt-1 flex items-start gap-1.5 min-h-[2rem]">
                     <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
                     <span>Convenzionalmente valido per la fatturazione del mese successivo.</span>
                   </div>
@@ -785,44 +776,42 @@ export default function App() {
               </div>
 
               {/* 2. Ultima Settimana Consolidata */}
-              <div className="bg-[#222e49]/80 text-white/90 rounded-2xl p-5 border border-[#31436b]/70 shadow-sm flex flex-col justify-between">
+              <div className="bg-white text-slate-900 rounded-2xl p-5 border border-slate-200 shadow-xs h-full flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-bold tracking-wider text-slate-300/85 uppercase mb-1.5">
+                  <div className="text-xs font-bold tracking-wider text-slate-700 uppercase mb-1.5">
                     SETTIMANALE
                   </div>
-                  <div className="text-sm font-semibold text-slate-300/85">
-                    {liveData.weekTitle} {liveData.weekSub && <span className="text-xs text-slate-300/85 font-normal">({liveData.weekSub})</span>}
+                  <div className="text-sm font-semibold text-slate-900">
+                    {liveData.weekTitle.replace("Settimana", "week")} {liveData.weekSub && <span className="text-xs font-normal">({liveData.weekSub})</span>}
                   </div>
-                  <div className={`text-3xl md:text-4xl font-black tracking-tight my-2.5 ${
-                    liveData.weekSurcharge > 0.0001 ? 'text-red-400' : (liveData.weekSurcharge < -0.0001 ? 'text-emerald-400' : 'text-slate-200/90')
-                  }`}>
+                  <div className="text-3xl md:text-4xl font-black tracking-tight my-2.5 text-slate-900">
                     {fmtIt(liveData.weekSurcharge, 2, true)} %
                   </div>
                 </div>
-                <div className="pt-3 border-t border-[#31436b]/50 text-xs text-slate-300/85 space-y-1">
+                <div className="pt-3 border-t border-slate-200 text-xs text-slate-600 space-y-1">
                   <div className="flex justify-between">
                     <span>Prezzo Rilevato:</span>
-                    <b className="text-slate-300/85">{fmtIt(liveData.weekPrice, 3)} €/L</b>
+                    <b className="text-slate-600 font-semibold">{fmtIt(liveData.weekPrice, 3)} €/L</b>
                   </div>
                   <div className="flex justify-between">
                     <span>Variazione Prezzo (Δ):</span>
-                    <b className="text-slate-300/85">{fmtIt(liveData.weekDelta, 2, true)}%</b>
+                    <b className="text-slate-600 font-semibold">{fmtIt(liveData.weekDelta, 2, true)}%</b>
                   </div>
                   <div className="min-h-[2rem] pt-1" aria-hidden="true"></div>
                 </div>
               </div>
 
               {/* 3. Mese in Corso (Stima Provvisoria) */}
-              <div className="bg-slate-100/90 text-slate-900 rounded-2xl p-5 border border-slate-300 shadow-xs flex flex-col justify-between">
+              <div className="bg-white text-slate-900 rounded-2xl p-5 border border-slate-200 shadow-xs h-full flex flex-col justify-between">
                 <div>
-                  <div className="text-xs font-bold tracking-wider text-slate-500 uppercase mb-1.5">
+                  <div className="text-xs font-bold tracking-wider text-slate-700 uppercase mb-1.5">
                     MENSILE PROVVISORIO
                   </div>
-                  <div className="text-sm font-semibold text-slate-500">
+                  <div className="text-sm font-semibold text-slate-900">
                     {liveData.hasProvisional ? `${liveData.provTitle} (${liveData.provCount} rilevazioni)` : "Nessun dato provvisorio"}
                   </div>
                   {liveData.hasProvisional ? (
-                    <div className="text-3xl md:text-4xl font-black tracking-tight my-2.5 text-slate-500">
+                    <div className="text-3xl md:text-4xl font-black tracking-tight my-2.5 text-slate-900">
                       {fmtIt(liveData.provSurcharge, 2, true)} %
                     </div>
                   ) : (
@@ -831,21 +820,21 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="pt-3 border-t border-slate-200 text-xs text-slate-500 space-y-1">
+                <div className="pt-3 border-t border-slate-200 text-xs text-slate-600 space-y-1">
                   {liveData.hasProvisional ? (
                     <>
                       <div className="flex justify-between">
                         <span>Media Parziale:</span>
-                        <b className="text-slate-500">{fmtIt(liveData.provPrice, 3)} €/L</b>
+                        <b className="text-slate-600 font-semibold">{fmtIt(liveData.provPrice, 3)} €/L</b>
                       </div>
                       <div className="flex justify-between">
                         <span>Variazione Prezzo (Δ):</span>
-                        <b className="text-slate-500">{fmtIt(liveData.provDelta, 2, true)}%</b>
+                        <b className="text-slate-600 font-semibold">{fmtIt(liveData.provDelta, 2, true)}%</b>
                       </div>
                       <div className="min-h-[2rem] pt-1" aria-hidden="true"></div>
                     </>
                   ) : (
-                    <div className="text-[11px] text-slate-400 min-h-[2rem] pt-1 flex items-center">
+                    <div className="text-[11px] text-slate-500 min-h-[2rem] pt-1 flex items-center">
                       Tutte le settimane del mese sono già state consolidate.
                     </div>
                   )}
@@ -872,11 +861,11 @@ export default function App() {
                   onClick={() => setMatrixExpanded((v) => !v)}
                   aria-expanded={matrixShowAll}
                   aria-controls="matrice-scaglioni-body"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer"
                 >
                   {matrixShowAll
-                    ? <ChevronUp className="w-3.5 h-3.5 text-sky-600" />
-                    : <ChevronDown className="w-3.5 h-3.5 text-sky-600" />}
+                    ? <ChevronUp className="w-3.5 h-3.5 text-slate-700" />
+                    : <ChevronDown className="w-3.5 h-3.5 text-slate-700" />}
                   {matrixShowAll
                     ? `Mostra solo i riferimenti (${matrixWindow.end - matrixWindow.start + 1})`
                     : "Espandi Matrice"}
