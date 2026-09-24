@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import rawData from './data/gasolio_mase.json';
-import { fmtIt, calculateSurcharge, priceBracket, getWeekMeta, toISODateString } from './utils/calculation';
+import { fmtIt, calculateSurcharge, priceBracket, getWeekMeta, toISODateString, getProvisionalMonth } from './utils/calculation';
 
 // Componente Plotly ottimizzato per Vite
 import Plotly from 'plotly.js-dist-min';
@@ -245,7 +245,7 @@ export default function App() {
       monthSurcharge = res.surchargePct;
     }
 
-    // 2. Mese Corrente (Provvisorio)
+    // 2. Mese Corrente (Provvisorio) - logica condivisa con il Simulatore (unica fonte di verità)
     let hasProvisional = false;
     let provPrice = 0;
     let provTitle = "N/D";
@@ -253,34 +253,15 @@ export default function App() {
     let provDelta = 0;
     let provSurcharge = 0;
 
-    if (weeklyList.length > 0) {
-      const lastWeek = weeklyList[weeklyList.length - 1];
-      const [wYStr, wMStr] = lastWeek.data.split("-");
-      const wYear = Number(wYStr);
-      const wMonth = Number(wMStr);
-
-      const isConsolidated = monthlyList.some((m) => m.anno === wYear && m.mese === wMonth);
-      if (!isConsolidated) {
-        const provisionalWeeks = weeklyList.filter((w) => {
-          const [y, m] = w.data.split("-").map(Number);
-          return y === wYear && m === wMonth;
-        });
-
-        if (provisionalWeeks.length > 0) {
-          hasProvisional = true;
-          provCount = provisionalWeeks.length;
-          const monthNames = [
-            "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-            "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-          ];
-          provTitle = `${monthNames[wMonth - 1]} ${wYear}`;
-          const sum = provisionalWeeks.reduce((acc, curr) => acc + (curr[activeKey] || 0), 0);
-          provPrice = sum / provCount;
-          const res = calculateSurcharge(targetPrice, provPrice, fuelWeight);
-          provDelta = res.deltaPct;
-          provSurcharge = res.surchargePct;
-        }
-      }
+    const provisional = getProvisionalMonth(weeklyList, monthlyList, activeKey);
+    if (provisional) {
+      hasProvisional = true;
+      provCount = provisional.count;
+      provTitle = provisional.title;
+      provPrice = provisional.price;
+      const res = calculateSurcharge(targetPrice, provPrice, fuelWeight);
+      provDelta = res.deltaPct;
+      provSurcharge = res.surchargePct;
     }
 
     // 3. Ultima Settimana Rilevata
@@ -488,6 +469,11 @@ export default function App() {
 
   const labActiveKey = priceKeys[labPriceType] || "prezzo_pompa";
 
+  // Mese in corso provvisorio (media delle settimane non ancora consolidate) per la base selezionata nel laboratorio
+  const labProvisional = useMemo(() => {
+    return getProvisionalMonth(weeklyList, monthlyList, labActiveKey);
+  }, [weeklyList, monthlyList, labActiveKey]);
+
   // Calcolo Prezzo Base (Target) del Laboratorio
   const { labBasePrice, labTargetLabel } = useMemo(() => {
     if (labTargetMode === "Valore Libero") {
@@ -557,8 +543,20 @@ export default function App() {
         labEvalLabel: meta ? `Settimana ${meta.weekNumber}/${meta.yearShort} (${meta.subText})` : ""
       };
     }
+    if (labEvalMode === "Mese Provvisorio") {
+      if (!labProvisional) {
+        return {
+          labEvalPrice: labCustomEvalPrice,
+          labEvalLabel: "Nessun mese in corso provvisorio disponibile"
+        };
+      }
+      return {
+        labEvalPrice: Number(labProvisional.price.toFixed(3)),
+        labEvalLabel: `${labProvisional.title} - provvisorio (${labProvisional.count} rilevazioni)`
+      };
+    }
     return { labEvalPrice: labCustomEvalPrice, labEvalLabel: "" };
-  }, [labEvalMode, labEvalMonthIdx, labEvalWeekIdx, labCustomEvalPrice, labActiveKey, monthlyList, weeklyList]);
+  }, [labEvalMode, labEvalMonthIdx, labEvalWeekIdx, labCustomEvalPrice, labActiveKey, monthlyList, weeklyList, labProvisional]);
 
   // Calcolo Risultato Surcharge nel Laboratorio
   const labResult = useMemo(() => {
@@ -865,7 +863,7 @@ export default function App() {
                   Matrice a scaglioni
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Forchette di prezzo (passi da ±0,50%) calcolate a partire dalla base neutra 0,00% ({fmtIt(targetPrice, 3)} €/L).
+                  Forchette di prezzo (passi da ±0,50%).
                 </p>
               </div>
               {matrixHiddenCount > 0 && (
@@ -1234,9 +1232,14 @@ export default function App() {
                       onChange={(e) => setLabEvalMode(e.target.value)}
                       className="w-full h-[38px] bg-white border border-slate-300 rounded-xl px-3 font-semibold text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
                     >
-                      <option value="Mese Storico">Mese Storico</option>
-                      <option value="Settimana">Settimana Storica</option>
-                      <option value="Valore Libero">Valore Libero (manuale)</option>
+                      <option value="Mese Provvisorio" disabled={!labProvisional}>
+                        {labProvisional
+                          ? `Mese in corso provvisorio (${labProvisional.title})`
+                          : "Mese in corso provvisorio (non disponibile)"}
+                      </option>
+                      <option value="Mese Storico">Mese (consolidato)</option>
+                      <option value="Settimana">Settimana</option>
+                      <option value="Valore Libero">Valore libero (manuale)</option>
                     </select>
                   </div>
 

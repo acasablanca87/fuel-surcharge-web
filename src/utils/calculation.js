@@ -40,7 +40,7 @@ export function toISODateString(d) {
 
 // Metadati settimana MASE (Lunedì-Domenica e ISO Week)
 export function getWeekMeta(dateStr) {
-  if (!dateStr) return { label: "N/D", obsStartISO: "", obsEndISO: "", isoWeek: 0, isoYear: 0 };
+  if (!dateStr) return { label: "N/D", obsStartISO: "", obsEndISO: "", isoWeek: 0, isoYear: 0, weekNumber: "", yearShort: "", subText: "" };
   
   const [y, m, d] = dateStr.split("-").map(Number);
   const relDate = new Date(y, m - 1, d);
@@ -75,6 +75,38 @@ export function getWeekMeta(dateStr) {
     obsStartISO: toISODateString(obsStartDt),
     obsEndISO: toISODateString(obsEndDt),
     isoWeek,
-    isoYear
+    isoYear,
+    // Campi di comodo per le etichette compatte (es. "Settimana 38/26 (01/09 - 07/09/2026)")
+    weekNumber: String(isoWeek).padStart(2, "0"),
+    yearShort: String(isoYear).slice(-2),
+    subText: `${startStr} - ${endStr}`
   };
+}
+
+/**
+ * Individua il "mese in corso" provvisorio: il mese dell'ultima rilevazione settimanale
+ * non ancora presente nell'archivio mensile consolidato, come media delle sue settimane.
+ * Restituisce null se non esiste un mese provvisorio.
+ */
+export function getProvisionalMonth(weeklyList, monthlyList, key) {
+  if (!weeklyList || weeklyList.length === 0) return null;
+
+  const [yStr, mStr] = String(weeklyList[weeklyList.length - 1].data).split("-");
+  const year = Number(yStr);
+  const month = Number(mStr);
+  if (monthlyList && monthlyList.some((m) => m.anno === year && m.mese === month)) return null;
+
+  const weeks = weeklyList.filter((w) => {
+    const [wy, wm] = String(w.data).split("-").map(Number);
+    return wy === year && wm === month;
+  });
+  if (weeks.length === 0) return null;
+
+  const monthNames = [
+    "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+  ];
+  const price = weeks.reduce((acc, w) => acc + (w[key] || 0), 0) / weeks.length;
+
+  return { price, title: `${monthNames[month - 1]} ${year}`, count: weeks.length };
 }
