@@ -1481,7 +1481,7 @@ export default function App() {
             {archiveTab === "lookup" && (
               <div className="space-y-4">
                 <h4 className="font-bold text-slate-800 text-sm md:text-base">
-                  Consultazione Rapida Rilevazioni Ufficiali MASE (Gasolio Auto)
+                  Consultazione Rilevazioni Ufficiali MASE Gasolio Auto
                 </h4>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border border-slate-200 p-4 rounded-xl">
@@ -1598,25 +1598,26 @@ export default function App() {
                       <b>Dettaglio:</b> {lookupResult.detailText}
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-center">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                      <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-center flex flex-col justify-center min-h-[92px]">
                         <div className="text-xs font-semibold text-slate-500 uppercase">Prezzo Pompa</div>
-                        <div className="text-xl font-black text-sky-700 mt-1">{fmtIt(lookupResult.pompa, 3)} €/L</div>
+                        <div className="text-xl font-black text-blue-700 mt-1">{fmtIt(lookupResult.pompa, 3)} €/L</div>
                       </div>
-                      <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-center">
+                      <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-center flex flex-col justify-center min-h-[92px]">
                         <div className="text-xs font-semibold text-slate-500 uppercase">Imponibile (no IVA)</div>
-                        <div className="text-xl font-black text-indigo-700 mt-1">{fmtIt(lookupResult.imponibile, 3)} €/L</div>
+                        <div className="text-xl font-black text-slate-900 mt-1">{fmtIt(lookupResult.imponibile, 3)} €/L</div>
                       </div>
-                      <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-center">
+                      <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-center flex flex-col justify-center min-h-[92px]">
                         <div className="text-xs font-semibold text-slate-500 uppercase">Netto Industriale</div>
-                        <div className="text-xl font-black text-amber-600 mt-1">{fmtIt(lookupResult.netto, 3)} €/L</div>
+                        <div className="text-xl font-black text-slate-900 mt-1">{fmtIt(lookupResult.netto, 3)} €/L</div>
                       </div>
-                      <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-center">
-                        <div className="text-xs font-semibold text-slate-500 uppercase">Accisa + IVA</div>
-                        <div className="text-sm font-black text-emerald-700 mt-1">
-                          Accisa: {fmtIt(lookupResult.accisa, 4)} €/L<br />
-                          <span className="text-xs font-normal text-slate-500">IVA: {fmtIt(lookupResult.iva, 3)} €/L</span>
-                        </div>
+                      <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-center flex flex-col justify-center min-h-[92px]">
+                        <div className="text-xs font-semibold text-slate-500 uppercase">Accisa</div>
+                        <div className="text-xl font-black text-slate-900 mt-1">{fmtIt(lookupResult.accisa, 4)} €/L</div>
+                      </div>
+                      <div className="bg-white border border-slate-200 p-3.5 rounded-xl text-center flex flex-col justify-center min-h-[92px]">
+                        <div className="text-xs font-semibold text-slate-500 uppercase">IVA</div>
+                        <div className="text-xl font-black text-slate-900 mt-1">{fmtIt(lookupResult.iva, 3)} €/L</div>
                       </div>
                     </div>
                   </div>
