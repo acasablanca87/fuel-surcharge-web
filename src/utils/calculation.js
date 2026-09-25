@@ -20,14 +20,41 @@ export function calculateSurcharge(targetPrice, currentPrice, fuelWeightPct) {
   return { deltaPrice, deltaPct, surchargePct };
 }
 
-// Calcolo dei limiti di prezzo per la matrice a scaglioni
-export function priceBracket(targetPrice, surchargePct, fuelWeightPct) {
+// I prezzi ministeriali MASE hanno esattamente 3 decimali (millesimo di euro):
+// la griglia delle fasce è quindi discreta a scatti di 0,001 €.
+const PRICE_MILLI = 1000;
+const PRICE_DECIMALS = 3;
+
+// Calcolo dei limiti di prezzo per la matrice a scaglioni.
+// Lo scaglione copre teoricamente la fascia centrata ±0,25% della surcharge, ma gli estremi
+// vengono agganciati alla griglia del millesimo di euro per rendere le fasce strettamente
+// discrete: il valore di confine appartiene sempre allo scaglione inferiore, quindi l'estremo
+// inferiore di ogni scaglione successivo riparte da `prevMax + 0,001 €` (nessun prezzo
+// condiviso o ambiguo tra due righe consecutive).
+// `prevMax` è l'estremo superiore dello scaglione precedente (null per il primo scaglione).
+export function priceBracket(targetPrice, surchargePct, fuelWeightPct, prevMax = null) {
   if (!targetPrice || targetPrice <= 0) return [0, 0];
   const lowerSurcharge = surchargePct - 0.25;
   const upperSurcharge = surchargePct + 0.25;
-  const pMin = targetPrice * (1 + lowerSurcharge / fuelWeightPct);
-  const pMax = targetPrice * (1 + upperSurcharge / fuelWeightPct);
-  return [pMin, pMax];
+  const rawMin = targetPrice * (1 + lowerSurcharge / fuelWeightPct);
+  const rawMax = targetPrice * (1 + upperSurcharge / fuelWeightPct);
+  const maxMilli = Math.round(rawMax * PRICE_MILLI);
+  const minMilli = prevMax === null || prevMax === undefined
+    ? Math.round(rawMin * PRICE_MILLI)
+    : Math.round(prevMax * PRICE_MILLI) + 1;
+  // Salvaguardia: la fascia non può mai invertirsi né collassare
+  return [Math.min(minMilli, maxMilli) / PRICE_MILLI, maxMilli / PRICE_MILLI];
+}
+
+// Appartenenza di un prezzo rilevato a una fascia della matrice a scaglioni.
+// Il confronto è inclusivo sui due estremi e viene effettuato al millesimo, cioè alla stessa
+// precisione con cui il prezzo è mostrato in tabella: così un prezzo con più decimali (es.
+// media provvisoria o rilevazione settimanale a 4 decimali) ricade sempre in una sola riga,
+// senza finire nei "buchi" tra due fasce discrete.
+export function isPriceInBracket(price, pMin, pMax) {
+  if (!Number.isFinite(price) || !Number.isFinite(pMin) || !Number.isFinite(pMax)) return false;
+  const priceMilli = Number(price.toFixed(PRICE_DECIMALS));
+  return priceMilli >= pMin && priceMilli <= pMax;
 }
 
 // Formatta un oggetto Date in YYYY-MM-DD locale (senza bug di timezone UTC)

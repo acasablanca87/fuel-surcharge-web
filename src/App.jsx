@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import rawData from './data/gasolio_mase.json';
-import { fmtIt, calculateSurcharge, priceBracket, getWeekMeta, toISODateString, getProvisionalMonth } from './utils/calculation';
+import { fmtIt, calculateSurcharge, priceBracket, isPriceInBracket, getWeekMeta, toISODateString, getProvisionalMonth } from './utils/calculation';
 
 // Componente Plotly ottimizzato per Vite
 import Plotly from 'plotly.js-dist-min';
@@ -339,6 +339,8 @@ export default function App() {
   }, [monthlyList, weeklyList, activeKey, targetPrice, fuelWeight]);
 
   // --- RIGHE MATRICE A SCAGLIONI (PASSI DA 0,5% CON PARTENZA DA 0,00% A SALIRE) ---
+  // Fasce discrete al millesimo di euro (0,001 €): l'estremo inferiore di ogni scaglione
+  // riparte esattamente da +0,001 € rispetto all'estremo superiore dello scaglione precedente.
   const bracketRows = useMemo(() => {
     const { monthPrice, hasProvisional, provPrice, weekPrice, monthSurcharge, provSurcharge, weekSurcharge } = liveData;
 
@@ -355,22 +357,22 @@ export default function App() {
       steps.push(s);
     }
 
-    return steps.map((s) => {
-      const [pMin, pMax] = priceBracket(targetPrice, s, fuelWeight);
+    return steps.reduce((rows, s) => {
+      // Il minimo di ogni riga è incatenato al massimo della precedente (+0,001 €)
+      const prevMax = rows.length > 0 ? rows[rows.length - 1].pMax : null;
+      const [pMin, pMax] = priceBracket(targetPrice, s, fuelWeight, prevMax);
       const isBase = Math.abs(s) < 0.0001;
-      const matchMonth = monthPrice >= pMin && monthPrice < pMax;
-      const matchWeek = weekPrice >= pMin && weekPrice < pMax;
-      const matchProv = hasProvisional && provPrice >= pMin && provPrice < pMax;
-      return {
+      rows.push({
         s,
         pMin,
         pMax,
         isBase,
-        matchMonth,
-        matchWeek,
-        matchProv
-      };
-    });
+        matchMonth: isPriceInBracket(monthPrice, pMin, pMax),
+        matchWeek: isPriceInBracket(weekPrice, pMin, pMax),
+        matchProv: hasProvisional && isPriceInBracket(provPrice, pMin, pMax)
+      });
+      return rows;
+    }, []);
   }, [liveData, targetPrice, fuelWeight]);
 
   // --- FINESTRA DI DEFAULT MATRICE: RIGHE DEI RIFERIMENTI ± 2 SCAGLIONI ---
@@ -1680,7 +1682,7 @@ export default function App() {
                 <b>Incidenza Costo Gasolio (%):</b> Il Fuel Surcharge finale è ottenuto moltiplicando la variazione per l'incidenza pattuita (default 30%, tabelle indicative costi MIT).
               </li>
               <li>
-                <b>Matrice a Scaglioni (Step 0,50%):</b> Ogni scaglione tariffario copre una fascia centrata di ±0,25%, calcolata tramite formula inversa dal Prezzo Baseline.
+                <b>Matrice a Scaglioni (Step 0,50%):</b> Ogni scaglione tariffario copre una fascia centrata di ±0,25%, calcolata tramite formula inversa dal Prezzo Baseline. Le fasce sono discrete a scatti di 0,001 € (millesimo): l'estremo inferiore riparte da +0,001 € rispetto all'estremo superiore dello scaglione precedente, quindi il prezzo di confine appartiene sempre alla fascia inferiore.
               </li>
               <li>
                 <b>Tipologie di Prezzo:</b> Le variazioni su <i>Pompa</i> e <i>Imponibile</i> sono matematicamente identiche al centesimo (IVA 22% costante). Il <i>Netto Industriale</i> isola la materia prima pura escludendo l'accisa.
