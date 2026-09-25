@@ -8,7 +8,7 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
 
 - **Frontend Core:** Single Page Application React 19 compilata con Vite 8 e stilizzata con Tailwind CSS v4.
   - Header istituzionale con emblema Repubblica Italiana, font Titillium Web e data dell'ultimo aggiornamento ministeriale.
-  - Pannello controlli a griglia 2x2 (*PARAMETRI BASELINE*): Tipologia Prezzo Ministeriale (Pompa, Imponibile, Netto), Incidenza costo gasolio (%), Modalità Periodo Baseline (Anno solare, Singolo Mese, Range personalizzato) e relativo periodo di riferimento. Il selettore di granularità è stato rimosso: la granularità è oggi contestuale al grafico di trend.
+  - Pannello controlli a griglia 2x2 (*PARAMETRI BASELINE*): Tipologia Prezzo Ministeriale (Pompa, Imponibile, Netto), Incidenza costo gasolio (%), Modalità Periodo Baseline (Media Anno Solare, Media Mese Singolo, Media Intervallo Personalizzato) e relativo periodo di riferimento. Il selettore di granularità è stato rimosso: la granularità è oggi contestuale al grafico di trend.
   - Stanza Operativa con cruscotto a 3 card (*Ultimo Mese Consolidato*, *Ultima Settimana Consolidata*, *Mese in Corso (Stima Provvisoria)*) e nota contrattuale di fatturazione.
   - Matrice a Scaglioni (step 0,50%, base 41 righe da 0,00% a 20,00% con estensione automatica) con vista compatta espandibile e deep link `?matrice=full`.
   - Sezione *Analisi del Fuel Surcharge:* grafico trend bi-curva (Pompa vs Netto) con toggle Mensile/Settimanale e Laboratorio di Calcolo a 3 colonne speculari (base di partenza, rilevazione da valutare, parametri e risultato).
@@ -205,3 +205,13 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
       - Card informative finali: formula con `P_baseline`, *Incidenza Costo Gasolio (%)*, *Matrice a Scaglioni (Step 0,50%)* con "fascia" e "Prezzo Baseline", *Tipologie di Prezzo*, configurazione d'avvio *"Prezzo Globale (alla pompa), Incidenza 30% e Baseline Media Anno 2025"*.
     - **Allineamento documentale (`README.md` e questo registro):** il baseline audit descriveva una UI non più esistente (pannello 3x2 con granularità, "Suite a 4 Tab" con il simulatore come tab separato). Corretti: 3 Tipologie di Prezzo Ministeriale, Parametri Baseline, Cruscotto a 3 indicatori, Matrice a Scaglioni (step 0,50%, 41 righe), Sezione Analisi con Laboratorio a 3 colonne, Archivio a 2 tab, deep link reali (`price_type`, `weight`, `matrice=full`) e formula con $P_{\text{baseline}}$.
     - **Verifica finale:** `npm run lint` 0 errori (resta 1 warning preesistente su `setState` in `useEffect`, già a backlog); `npm run build` exit code 0 (1824 moduli); ispezione del bundle costruito per confermare la presenza della registrazione locale, del `config.locale` e l'assenza del `layout.locale` morto.
+  - **Rinomina Etichette Select "Modalità Periodo Baseline" (25 Settembre 2026):**
+    - **Richiesta:** aggiornare esclusivamente le etichette a schermo delle tre opzioni del select *MODALITÀ PERIODO BASELINE*, per chiarire che ogni modalità restituisce una **media** di periodo.
+    - **Intervento chirurgico (1 file, 3 righe — `src/App.jsx`, select del pannello *PARAMETRI BASELINE*):**
+      - `Anno solare` → **`Media Anno Solare`**
+      - `Singolo Mese` → **`Media Mese Singolo`**
+      - `Range personalizzato (da / a)` → **`Media Intervallo Personalizzato (da/a)`**
+    - **Vincoli rispettati (Zero Unintended Regressions):** gli attributi `value` (`"Anno solare"`, `"Singolo Mese"`, `"Range personalizzato"`) sono rimasti **letteralmente invariati**, così come lo stato interno `targetMode`, i rami condizionali (righe 704-734) e la logica di calcolo in `src/utils/calculation.js`. Nessun impatto su URL/deep link (`price_type`, `weight`, `matrice`), che non veicolano `targetMode`.
+    - **Scope deliberatamente limitato:** i select *Modalità Periodo Target* (Laboratorio, `labTargetMode`) e *Criterio di Ricerca* (Archivio MASE, `lookupMode`) usano gli stessi `value` ma sono **campi diversi** e non rientrano nella richiesta: lasciati invariati.
+    - **Nota di manutenzione:** eventuali nuove opzioni o refactoring futuri devono continuare a far corrispondere `value` e stringa di stato; le etichette sono ora disaccoppiate dal valore e possono essere riviste senza toccare il calcolo.
+    - **Verifica:** `npm run build` exit code 0 (1824 moduli, 2.15 s); ispezione diretta delle righe 695-697 del sorgente per confermare i nuovi label a fronte dei `value` originali.

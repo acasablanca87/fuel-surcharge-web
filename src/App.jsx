@@ -692,9 +692,9 @@ export default function App() {
                   onChange={(e) => handleTargetModeChange(e.target.value)}
                   className="w-full h-[42px] bg-slate-50 border border-slate-300 rounded-xl px-3.5 font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none text-sm"
                 >
-                  <option value="Anno solare">Anno solare</option>
-                  <option value="Singolo Mese">Singolo Mese</option>
-                  <option value="Range personalizzato">Range personalizzato (da / a)</option>
+                  <option value="Anno solare">Media Annuale</option>
+                  <option value="Singolo Mese">Media Mensile</option>
+                  <option value="Range personalizzato">Media Intervallo Personalizzato (da/a)</option>
                 </select>
               </div>
 
