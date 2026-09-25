@@ -883,7 +883,7 @@ export default function App() {
                   MATRICE A SCAGLIONI
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Step di 0,50%
+                  Scaglioni Fuel Surcharge (step 0,50%) calcolati rispetto alla baseline di {fmtIt(targetPrice, 3)} €/L ({targetLabel}).
                 </p>
               </div>
               {matrixHiddenCount > 0 && (
