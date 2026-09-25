@@ -7,6 +7,35 @@ import Plotly from 'plotly.js-dist-min';
 import createPlotlyComponent from 'react-plotly.js/factory';
 const Plot = createPlotlyComponent(Plotly);
 
+// Locale italiano per Plotly: il bundle `plotly.js-dist-min` non include i file di
+// localizzazione, quindi senza registrazione la formattazione delle date (mesi/giorni
+// sugli assi, slider e hover) usa il default "en-US" e mostra "Jan 2022", "Jul 2022", ecc.
+// Definizione allineata al locale ufficiale `plotly-locale-it.js` di plotly.js.
+Plotly.register({
+  moduleType: "locale",
+  name: "it",
+  dictionary: {
+    "Click to enter Plot title": "Clicca per inserire un titolo al grafico"
+  },
+  format: {
+    days: ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"],
+    shortDays: ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"],
+    months: [
+      "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+      "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ],
+    shortMonths: ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"],
+    date: "%d/%m/%Y",
+    decimal: ",",
+    thousands: "."
+  }
+});
+
+// Locale condiviso dai grafici: mesi e giorni in italiano.
+// NB: va passato in `config.locale`, non in `layout.locale`: in Plotly 4 l'attributo
+// di layout è deprecato e viene ignorato, mentre la formattazione legge `gd._context.locale`.
+const plotlyLocale = "it";
+
 import { 
   Sliders, TrendingUp, BarChart3, Search, 
   Calculator, BookOpen, ExternalLink, CheckCircle2,
@@ -611,7 +640,7 @@ export default function App() {
           <div className="flex items-center gap-2 mb-5 pb-3 border-b border-slate-100">
             <Sliders className="w-5 h-5 text-sky-600" />
             <h2 className="font-bold text-slate-800 text-base md:text-lg">
-              Parametri di base per il calcolo del Fuel Surcharge
+              PARAMETRI BASELINE
             </h2>
           </div>
 
@@ -621,7 +650,7 @@ export default function App() {
               {/* Base di Prezzo Ministeriale */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Base di Prezzo Ministeriale:
+                  Tipologia Prezzo Ministeriale
                 </label>
                 <select
                   value={priceType}
@@ -637,7 +666,7 @@ export default function App() {
               {/* Incidenza Costo Gasolio */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Incidenza costo gasolio (%):
+                  Incidenza costo gasolio (%)
                 </label>
                 <select
                   value={fuelWeight}
@@ -656,7 +685,7 @@ export default function App() {
               {/* Modalità Periodo Base */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Modalità Periodo Base (Target):
+                  Modalità Periodo Baseline
                 </label>
                 <select
                   value={targetMode}
@@ -672,7 +701,7 @@ export default function App() {
               {/* Periodo Target Specifico */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  {targetMode === "Anno solare" && "Anno Solare di Riferimento:"}
+                  {targetMode === "Anno solare" && "Baseline di Riferimento"}
                   {targetMode === "Singolo Mese" && "Mese Storico di Riferimento:"}
                   {targetMode === "Range personalizzato" && "Intervallo Date di Riferimento:"}
                 </label>
@@ -732,10 +761,10 @@ export default function App() {
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg md:text-xl">
-                  Quadro Fuel Surcharge attuale
+                  QUADRO FUEL SURCHARGE ATTUALE
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Adeguamento tariffario calcolato sulle rilevazioni ministeriali attuali rispetto al prezzo base di {fmtIt(targetPrice, 3)} €/L ({targetLabel}).
+                  Adeguamento tariffario calcolato sulle rilevazioni ministeriali attuali rispetto alla baseline di {fmtIt(targetPrice, 3)} €/L ({targetLabel}).
                 </p>
               </div>
             </div>
@@ -761,7 +790,7 @@ export default function App() {
                 </div>
                 <div className="pt-3 border-t border-sky-200 text-xs text-slate-600 space-y-1">
                   <div className="flex justify-between">
-                    <span>Prezzo Rilevato:</span>
+                    <span>Prezzo Medio:</span>
                     <b className="text-slate-600 font-semibold">{fmtIt(liveData.monthPrice, 3)} €/L</b>
                   </div>
                   <div className="flex justify-between">
@@ -770,7 +799,7 @@ export default function App() {
                   </div>
                   <div className="text-xs text-slate-900 pt-1 flex items-start gap-1.5 min-h-[2rem]">
                     <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                    <span>Convenzionalmente valido per la fatturazione del mese successivo.</span>
+                    <span className="font-bold">convenzionalmente valido per la fatturazione del mese successivo</span>
                   </div>
                 </div>
               </div>
@@ -790,7 +819,7 @@ export default function App() {
                 </div>
                 <div className="pt-3 border-t border-slate-200 text-xs text-slate-600 space-y-1">
                   <div className="flex justify-between">
-                    <span>Prezzo Rilevato:</span>
+                    <span>Prezzo Medio:</span>
                     <b className="text-slate-600 font-semibold">{fmtIt(liveData.weekPrice, 3)} €/L</b>
                   </div>
                   <div className="flex justify-between">
@@ -851,10 +880,10 @@ export default function App() {
             <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h4 className="font-bold text-slate-800 text-base">
-                  Matrice a scaglioni
+                  MATRICE A SCAGLIONI
                 </h4>
                 <p className="text-xs text-slate-500">
-                  Forchette di prezzo (passi da ±0,50%).
+                  Step di 0,50%
                 </p>
               </div>
               {matrixHiddenCount > 0 && (
@@ -880,7 +909,7 @@ export default function App() {
                 <thead className="shadow-xs">
                   <tr className="bg-slate-100 text-slate-700 text-xs uppercase tracking-wider border-b border-slate-200">
                     <th rowSpan="2" className="py-1.5 px-3 font-bold align-top border-r border-slate-200/80 bg-slate-100">
-                      Forchetta Prezzo Gasolio
+                      Fascia Prezzo Gasolio
                     </th>
                     <th rowSpan="2" className="py-1.5 px-3 font-bold text-center align-top border-r border-slate-200/80 bg-slate-100">
                       Fuel Surcharge
@@ -1054,7 +1083,7 @@ export default function App() {
               <div>
                 <h4 className="font-bold text-slate-900 text-base md:text-lg flex items-center gap-2">
                   <Calculator className="w-5 h-5 text-sky-600" />
-                  SIMULATORE
+                  Simulatore
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
                   Confronta liberamente qualsiasi periodo storico MASE o simula scenari ipotetici con valori personalizzati.
@@ -1477,7 +1506,7 @@ export default function App() {
                     }}
                     useResizeHandler={true}
                     style={{ width: '100%', height: '100%' }}
-                    config={{ displayModeBar: false, responsive: true }}
+                    config={{ displayModeBar: false, responsive: true, locale: plotlyLocale }}
                   />
                 </div>
               </div>
