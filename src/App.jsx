@@ -1674,16 +1674,16 @@ export default function App() {
             </h5>
             <ul className="space-y-2 list-disc list-inside text-slate-600">
               <li>
-                <b>Variazione Prezzo Gasolio (Δ%):</b> Calcola lo scostamento tra prezzo rilevato e prezzo target base: <code className="bg-slate-100 px-1 py-0.5 rounded">Δ% = ((P_attuale - P_target) / P_target) × 100</code>
+                <b>Variazione Prezzo Gasolio (Δ%):</b> Calcola lo scostamento tra prezzo rilevato e prezzo baseline: <code className="bg-slate-100 px-1 py-0.5 rounded">Δ% = ((P_attuale - P_baseline) / P_baseline) × 100</code>
               </li>
               <li>
-                <b>Quota di Incidenza (Peso %):</b> Il Fuel Surcharge finale è ottenuto moltiplicando la variazione per l'incidenza pattuita (default 30%, tabelle indicative costi MIT).
+                <b>Incidenza Costo Gasolio (%):</b> Il Fuel Surcharge finale è ottenuto moltiplicando la variazione per l'incidenza pattuita (default 30%, tabelle indicative costi MIT).
               </li>
               <li>
-                <b>Matrice a Scaglioni (±0,50%):</b> Ogni scaglione tariffario copre una forchetta centrata di ±0,25%, calcolata tramite formula inversa dal Prezzo Base.
+                <b>Matrice a Scaglioni (Step 0,50%):</b> Ogni scaglione tariffario copre una fascia centrata di ±0,25%, calcolata tramite formula inversa dal Prezzo Baseline.
               </li>
               <li>
-                <b>Basi di Prezzo:</b> Le variazioni su <i>Pompa</i> e <i>Imponibile</i> sono matematicamente identiche al centesimo (IVA 22% costante). Il <i>Netto Industriale</i> isola la materia prima pura escludendo l'accisa.
+                <b>Tipologie di Prezzo:</b> Le variazioni su <i>Pompa</i> e <i>Imponibile</i> sono matematicamente identiche al centesimo (IVA 22% costante). Il <i>Netto Industriale</i> isola la materia prima pura escludendo l'accisa.
               </li>
             </ul>
           </div>
@@ -1695,7 +1695,7 @@ export default function App() {
             </h5>
             <ul className="space-y-2 list-disc list-inside text-slate-600">
               <li>
-                <b>Configurazione all'Avvio:</b> Pre-impostata su <i>Prezzo Globale alla Pompa</i>, <i>Incidenza 30%</i> e <i>Periodo Base Anno 2025</i>.
+                <b>Configurazione all'Avvio:</b> Pre-impostata su <i>Prezzo Globale (alla pompa)</i>, <i>Incidenza 30%</i> e <i>Baseline Media Anno 2025</i>.
               </li>
               <li>
                 <b>Link Condivisibili (URL Query):</b> Qualsiasi parametro impostato viene sincronizzato nell'URL del browser per poter condividere preventivi pre-configurati.

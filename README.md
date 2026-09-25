@@ -20,19 +20,18 @@ Nel settore della logistica e dell'autotrasporto merci, le fluttuazioni del prez
 
 ## ✨ Funzionalità Chiave
 
-- **3 Basi di Prezzo Ministeriali:**
-  - *Prezzo Globale alla Pompa* (IVA e accise incluse)
+- **3 Tipologie di Prezzo Ministeriale:**
+  - *Prezzo Globale (alla pompa)* (IVA e accise incluse)
   - *Prezzo Imponibile* (senza IVA, con accise)
   - *Prezzo Netto Industriale* (senza IVA né accise)
-- **Periodo Base & Target Flessibili:** Confronto rispetto a medie annuali, singoli mesi storici o intervalli personalizzati.
-- **Granularità di Valutazione:** Analisi su base mensile o settimanale (con normalizzazione ISO Week e blocco automatico alla data di rilevazione effettiva).
-- **Matrice Previsionale a Scaglioni (±0,50%):** Tabella con soglie di prezzo min/max per ciascun punto percentuale di variazione, con riga attiva evidenziata.
-- **Suite Specialistica a 4 Tab:**
-  1. *Andamento Storico Prezzi:* Grafico interattivo Plotly multi-curva (Pompa, Imponibile, Netto, Accisa) con preset a 5 anni e zoom.
-  2. *Trend Fuel Surcharge (%):* Confronto storico bivariato (Base Pompa vs Base Netto).
-  3. *Consultazione Libera Prezzi:* Ricerca istantanea a 5 vie (Range date, Anno solare, Singolo mese, Settimana ISO, Data esatta documento).
-  4. *Simulatore What-If:* Calcolo previsionale di scenari tariffari ipotetici o capitolati di gara.
-- **Deep Linking:** Sincronizzazione automatica dei parametri di filtro nell'URL (`price_type`, `weight`, `granularity`) per condividere calcoli specifici.
+- **Parametri Baseline:** Incidenza costo gasolio personalizzabile da 1% a 100% e periodo di riferimento (*Modalità Periodo Baseline*) su anno solare, singolo mese storico o intervallo personalizzato, con medie ufficiali MASE precalcolate.
+- **Cruscotto Operativo a 3 Indicatori:** *Ultimo Mese Consolidato* (valido per la fatturazione del mese successivo), *Ultima Settimana Consolidata* (termometro spot) e *Mese in Corso (Stima Provvisoria)*, tutti derivati dalla stessa fonte di verità (`getProvisionalMonth`).
+- **Matrice a Scaglioni (Step 0,50%):** Tabella 0,00% → 20,00% (41 righe) con soglie min/max di prezzo per ciascuno scaglione, vista compatta espandibile, righe attive evidenziate e stampa sempre completa.
+- **Sezione Analisi Fuel Surcharge:** Grafico trend bi-curva (Base Pompa vs Base Netto) con toggle *Mensile / Settimanale* e **Laboratorio di Calcolo** in tre colonne speculari (Base di partenza | Rilevazione da valutare | Parametri e risultato) per simulare scenari o capitolati di gara.
+- **Archivio MASE a 2 Tab:**
+  1. *Andamento Storico Prezzi Gasolio:* Grafico interattivo Plotly multi-curva (Pompa, Imponibile, Netto, Accisa) con range slider e preset temporali.
+  2. *Consultazione Libera Prezzi:* Ricerca istantanea a 5 vie (intervallo date, anno solare, singolo mese, settimana ISO, data esatta documento).
+- **Deep Linking:** Sincronizzazione automatica dei parametri nell'URL (`price_type`, `weight`, `matrice=full`) per condividere calcoli e viste specifiche.
 
 ---
 
@@ -41,7 +40,7 @@ Nel settore della logistica e dell'autotrasporto merci, le fluttuazioni del prez
 I calcoli seguono gli standard d'esercizio per l'autotrasporto (MIT / associazioni di categoria):
 
 1. **Variazione Prezzo ($\Delta\%$):**
-   $$\Delta\% = \left(\frac{P_{\text{rilevato}} - P_{\text{target}}}{P_{\text{target}}}\right) \times 100$$
+   $$\Delta\% = \left(\frac{P_{\text{rilevato}} - P_{\text{baseline}}}{P_{\text{baseline}}}\right) \times 100$$
 2. **Fuel Surcharge Ponderato (%):**
    $$\text{Fuel Surcharge \%} = \Delta\% \times \left(\frac{\text{Incidenza \%}}{100}\right)$$
    *(Incidenza predefinita: 30%, personalizzabile da 1% a 100%).*
@@ -93,7 +92,7 @@ npm run build
 
 ## 🔄 Automazioni GitHub Actions
 
-- **`update_data.yml`:** Esegue automaticamente lo script Python ogni martedì (in concomitanza con la pubblicazione ministeriale), valida la quadratura dei prezzi e se vi sono nuovi dati esegue il commit su `main`.
+- **`update_data.yml`:** Esegue automaticamente lo script Python il martedì (in concomitanza con la pubblicazione ministeriale) con tentativi scaglionati a intervalli di 15 minuti nella fascia 09:53–16:18 UTC e recupero il mercoledì mattina; valida la quadratura dei prezzi e, se vi sono nuovi dati, esegue il commit su `main`.
 - **`deploy.yml`:** Compila l'applicazione con Vite e pubblica la build su GitHub Pages ad ogni push su `main` o al completamento dell'ETL.
 
 ---

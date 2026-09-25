@@ -7,22 +7,21 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
 ## 📍 Stato Attuale del Progetto (Baseline Audit)
 
 - **Frontend Core:** Single Page Application React 19 compilata con Vite 8 e stilizzata con Tailwind CSS v4.
-  - Header istituzionale con emblema Repubblica Italiana, font Titillium Web e ticker prezzi gasolio in tempo reale.
-  - Pannello controlli a griglia 3x2: scelta della base ministeriale (Pompa, Imponibile, Netto), incidenza carburante (%), periodo base/target e periodo di rilevazione.
-  - Hero Card con indicatore Fuel Surcharge (%) dinamico, badge semantici e nota contrattuale.
-  - Matrice previsionale a scaglioni (passi ±0,50%) con evidenziazione visiva dello scaglione attivo.
-  - Suite a 4 tab:
-    1. *Andamento Storico:* Grafico Plotly multi-serie (Pompa, Imponibile, Netto, Accise) con range slider.
-    2. *Trend Fuel Surcharge (%):* Confronto bivariato Pompa vs Netto.
-    3. *Consultazione Libera Prezzi:* Interrogazione a 5 modalità (Date range, Anno, Mese, Settimana ISO, Data esatta).
-    4. *Simulatore What-If:* Calcolo previsionale per simulazione scenari e gare d'appalto.
-  - Deep linking attivo tramite query parameters (`price_type`, `weight`, `granularity`).
+  - Header istituzionale con emblema Repubblica Italiana, font Titillium Web e data dell'ultimo aggiornamento ministeriale.
+  - Pannello controlli a griglia 2x2 (*PARAMETRI BASELINE*): Tipologia Prezzo Ministeriale (Pompa, Imponibile, Netto), Incidenza costo gasolio (%), Modalità Periodo Baseline (Anno solare, Singolo Mese, Range personalizzato) e relativo periodo di riferimento. Il selettore di granularità è stato rimosso: la granularità è oggi contestuale al grafico di trend.
+  - Stanza Operativa con cruscotto a 3 card (*Ultimo Mese Consolidato*, *Ultima Settimana Consolidata*, *Mese in Corso (Stima Provvisoria)*) e nota contrattuale di fatturazione.
+  - Matrice a Scaglioni (step 0,50%, base 41 righe da 0,00% a 20,00% con estensione automatica) con vista compatta espandibile e deep link `?matrice=full`.
+  - Sezione *Analisi del Fuel Surcharge:* grafico trend bi-curva (Pompa vs Netto) con toggle Mensile/Settimanale e Laboratorio di Calcolo a 3 colonne speculari (base di partenza, rilevazione da valutare, parametri e risultato).
+  - Archivio MASE a 2 tab: *Andamento Storico Prezzi Gasolio* (Plotly multi-serie con range slider) e *Consultazione Libera Prezzi* (5 modalità: intervallo date, anno, mese, settimana ISO, data esatta).
+  - Nota metodologica finale in 2 card (*Metodologia e Formule di Calcolo*, *Parametri di Default, Interattività e Fonti*).
+  - Grafici Plotly localizzati in italiano (`locale: "it"` via `config`, registrato con `Plotly.register`): assi, slider e hover usano mesi e giorni italiani.
+  - Deep linking attivo tramite query parameters (`price_type`, `weight`, `matrice`).
 - **ETL & Data Pipeline:**
   - Script Python 3.13 (`fetch_data.py`) che interroga le API REST MASE (DGSAIE) per serie settimanali e mensili.
   - Validazione matematica di quadratura: verifica che $P_{\text{pompa}} \approx P_{\text{netto}} + P_{\text{accisa}} + P_{\text{iva}}$.
   - Scrittura atomica del dataset locale in `src/data/gasolio_mase.json`.
 - **CI/CD & Hosting:**
-  - `update_data.yml`: Workflow GitHub Actions programmato per il martedì (con retry scaglionati) per aggiornare il JSON e committare su `main`.
+  - `update_data.yml`: Workflow GitHub Actions programmato per il martedì con tentativi scaglionati (09:53–16:18 UTC) e recupero il mercoledì mattina, per aggiornare il JSON e committare su `main`.
   - `deploy.yml`: Workflow di build Vite e pubblicazione automatica su GitHub Pages.
 
 ---
@@ -191,3 +190,18 @@ Questo documento traccia l'evoluzione del progetto, fungendo da ponte di contest
     - **Impatto contenuto e verificato:** l'anno della settimana alimenta solo stringhe di visualizzazione — asse X del trend (`src/App.jsx` riga 391), `weekTitle` della card *Ultima Settimana Consolidata* (riga 279), opzioni del select settimanale (riga 1275), `labEvalLabel` (riga 543) e i dettagli della Consultazione Libera (righe 449, 465, 1579). **Nessuna logica di filtro/range usa `isoYear`**: i filtri lavorano su `obsStartISO`/`obsEndISO` (righe 202, 406, 455), quindi calcoli, matrice a scaglioni, simulatore e deep link restano invariati.
     - **Nota di contorno (fuori scope, nessuna azione):** 2 righe del dataset hanno una data non-lunedì (`2006-05-02`, `2023-01-01`); non influenzano il calcolo ISO, che lavora per snap al giovedì.
     - **Verifica finale:** `npm run lint` 0 errori (resta 1 warning preesistente); `npm run build` exit code 0 (1824 moduli, 2.36 s) con autorizzazione estesa.
+  - **Revisione di Coerenza Globale, Localizzazione Italiana e Allineamento Documentale (25 Settembre 2026):**
+    - **Localizzazione italiana dei grafici Plotly (unico intervento funzionale della sessione):** i mesi dell'asse X del grafico *Evoluzione Prezzo Gasolio Auto Italia* apparivano in inglese (`Jan 2022`, `Jul 2022`) perché il bundle `plotly.js-dist-min` **non include i file di localizzazione**. L'altro grafico mostrava già i mesi in italiano perché non usa la formattazione date di Plotly, ma legge `nome_mese` dal dataset MASE.
+      - **Primo tentativo errato (causa del mancato effetto):** `layout.locale: "it"`. In Plotly 4 l'attributo di layout è **deprecato e ignorato** — esiste solo nello schema con `dflt: 'en-US'` e nessun consumer lo legge. La registrazione del locale era corretta e già presente nel bundle: era sbagliato solo il canale di attivazione.
+      - **Fix:** rimosso il `layout.locale` morto e passato `locale: plotlyLocale` nella **`config`** del solo grafico interessato. Catena verificata nel sorgente: `plot_config.js:377` (opzione di config) → `plot_api.js:425-450` (`config` → `gd._context`) → `plots.js:540` (`gd._context.locale` → formattazione).
+      - **Registrazione del locale** a livello di modulo in `src/App.jsx` con `Plotly.register({ moduleType: 'locale', name: 'it', ... })`, allineata al locale ufficiale `plotly-locale-it.js`; registrazione idempotente, sicura con StrictMode.
+      - **Verifica di non-regressione (importante):** i tick non usano `%x` ma le chiavi `extraFormat` di Plotly (`year`/`month`/`dayMonth`/`dayMonthYear`, risolte in `lib/dates.js:471-485`). Simulando la pipeline completa con i locale reali `en`/`en-US` pre-registrati è emerso che le format string restano **identiche** (`%Y`, `%b %Y`, `%b %-d`, `%b %-d, %Y`): cambiano **solo i nomi** dei mesi e dei giorni (`Jan` → `Gen`, `Jul` → `Lug`). Nessun impatto su granularità dei tick, layout o hover.
+      - Vincolo rispettato: il secondo `<Plot>` (consultazione) è rimasto invariato, così come `src/utils/calculation.js` e `src/data/`.
+    - **Micro-modifiche testuali (rinominazioni, nessun cambio di logica):**
+      - Pannello in alto: *PARAMETRI BASELINE*, *Tipologia Prezzo Ministeriale*, *Incidenza costo gasolio (%)*, *Modalità Periodo Baseline*, *Baseline di Riferimento* (rimossi i due punti finali dalle etichette, portate tutte a maiuscole letterali senza classi CSS aggiunte).
+      - *QUADRO FUEL SURCHARGE ATTUALE* (tutto maiuscolo) e sottotitolo *"...rispetto alla baseline di ..."*.
+      - *Simulatore* (solo iniziale maiuscola, era `SIMULATORE`); *MATRICE A SCAGLIONI* (tutto maiuscolo); sottotitolo *Step di 0,50%*; intestazione colonna *Fascia Prezzo Gasolio* (era "Forchetta").
+      - Box 1: *Prezzo Medio* (era *Prezzo Rilevato*) e *Prezzo Medio* nel Box 2; nota contrattuale in grassetto, minuscola e senza punto.
+      - Card informative finali: formula con `P_baseline`, *Incidenza Costo Gasolio (%)*, *Matrice a Scaglioni (Step 0,50%)* con "fascia" e "Prezzo Baseline", *Tipologie di Prezzo*, configurazione d'avvio *"Prezzo Globale (alla pompa), Incidenza 30% e Baseline Media Anno 2025"*.
+    - **Allineamento documentale (`README.md` e questo registro):** il baseline audit descriveva una UI non più esistente (pannello 3x2 con granularità, "Suite a 4 Tab" con il simulatore come tab separato). Corretti: 3 Tipologie di Prezzo Ministeriale, Parametri Baseline, Cruscotto a 3 indicatori, Matrice a Scaglioni (step 0,50%, 41 righe), Sezione Analisi con Laboratorio a 3 colonne, Archivio a 2 tab, deep link reali (`price_type`, `weight`, `matrice=full`) e formula con $P_{\text{baseline}}$.
+    - **Verifica finale:** `npm run lint` 0 errori (resta 1 warning preesistente su `setState` in `useEffect`, già a backlog); `npm run build` exit code 0 (1824 moduli); ispezione del bundle costruito per confermare la presenza della registrazione locale, del `config.locale` e l'assenza del `layout.locale` morto.
